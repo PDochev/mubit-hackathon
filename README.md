@@ -1,10 +1,10 @@
 # Precedent
 
-**An expense-policy reviewer that learns from every finance correction.** Built at the Mubit Night Shift hackathon (London, 23–25 Oct 2026), *Recurring tasks* track.
+**An expense-policy reviewer that learns from every finance correction.** Built at the Mubit Night Shift hackathon (London, 23–25 Oct 2026), _Recurring tasks_ track.
 
 An employee submits an expense. The model checks it against the company policy and gives a verdict (approve, violation or needs info) with the clause it relied on. When finance disagrees, they override it and write one sentence explaining why. That sentence does two things:
 
-1. **It applies straight away.** It's saved as a *precedent* (P1, P2, …) and sent with every similar claim from then on, so the very next claim gets it right.
+1. **It applies straight away.** It's saved as a _precedent_ (P1, P2, …) and sent with every similar claim from then on, so the very next claim gets it right.
 2. **It becomes a model update.** The corrected call is recorded through Mubit as a verified training example, and Mubit trains a small open model on those examples.
 
 ## Why: a recurring task nobody writes down
@@ -27,7 +27,7 @@ npm run dev                    # http://localhost:3000
 
 **Without a key** you can browse everything. Anything that asks the model (submitting a claim, Night Shift, re-checks, the evaluation) shows "No Mubit API key" instead.
 
-**With your own key**, your calls go to a new task in *your* Mubit workspace. Our trained adapter and our training examples live in our workspace, so the adapter figures are copied into `lib/adapter-evidence.ts` and labelled as such in the app.
+**With your own key**, your calls go to a new task in _your_ Mubit workspace. Our trained adapter and our training examples live in our workspace, so the adapter figures are copied into `lib/adapter-evidence.ts` and labelled as such in the app.
 
 **Cost, in model calls:** one claim is 1–3, a full Night Shift is about 25, and the evaluation is 100.
 
@@ -46,13 +46,13 @@ submit ─▶ model verdict ─▶ finance confirms ─────────�
                                                          └─▶ sent with every matching claim
 ```
 
-| Step | What happens | Mubit recording |
-|---|---|---|
-| First pass | System prompt + policy + matching precedents + claim, JSON verdict back. Small, receipted, confident approvals (≤ £100, ≥ 85%) are auto-approved; everything else waits for finance. | `metadata` (never trains) |
-| Finance decides | Confirm, or override with a reason. An override becomes a precedent, with tags used to match it to future claims. | — |
-| Commit | The claim is asked again with the ruling included and **full recording**. It only counts as a *verified* example if the reply matches finance's verdict (one retry otherwise). | `full` (trains) |
-| Policy edit | Saving a new policy version re-checks every open claim and tests each precedent against the new text. A precedent the policy now covers can be retired. | `metadata` |
-| Evaluation | 50 unseen claims (new people, merchants and wording), each asked with the policy alone and with the precedents. | `metadata` |
+| Step            | What happens                                                                                                                                                                         | Mubit recording           |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------- |
+| First pass      | System prompt + policy + matching precedents + claim, JSON verdict back. Small, receipted, confident approvals (≤ £100, ≥ 85%) are auto-approved; everything else waits for finance. | `metadata` (never trains) |
+| Finance decides | Confirm, or override with a reason. An override becomes a precedent, with tags used to match it to future claims.                                                                    | —                         |
+| Commit          | The claim is asked again with the ruling included and **full recording**. It only counts as a _verified_ example if the reply matches finance's verdict (one retry otherwise).       | `full` (trains)           |
+| Policy edit     | Saving a new policy version re-checks every open claim and tests each precedent against the new text. A precedent the policy now covers can be retired.                              | `metadata`                |
+| Evaluation      | 50 unseen claims (new people, merchants and wording), each asked with the policy alone and with the precedents.                                                                      | `metadata`                |
 
 ## How it uses Mubit
 
@@ -66,7 +66,7 @@ submit ─▶ model verdict ─▶ finance confirms ─────────�
 
 `/play` turns the same loop into a two-minute game. You're on the night shift at Northwind, training an AI apprentice that knows the written policy and nothing else.
 
-1. **23:00, round 1.** Four coworkers bring claims. The apprentice stamps each one (approve, reject or needs info, with the clause). Agree with it, or stamp your own verdict and pick the one-sentence reason. Each disagreement becomes a *ruling* (R1, R2, …) for the rest of the night.
+1. **23:00, round 1.** Four coworkers bring claims. The apprentice stamps each one (approve, reject or needs info, with the clause). Agree with it, or stamp your own verdict and pick the one-sentence reason. Each disagreement becomes a _ruling_ (R1, R2, …) for the rest of the night.
 2. **03:00, round 2.** The same kinds of cases come back with new details. The apprentice now applies your rulings unprompted.
 3. **09:00 audit.** Six claims it has never seen, each asked twice: with no rulings (as it started the night) and with yours. The board shows both against the right answer.
 4. **Shift report.** Agreement in round 1 vs round 2, the audit before → after, and the Mubit request ID of every recorded ruling. The Learning loop page shows the latest audited shift too.
@@ -77,17 +77,17 @@ It runs on the same engine as the inbox (`lib/game.ts`): first passes are `metad
 
 **Instant fix: precedents** (held-out evaluation run 7, 50 claims written with people, merchants and wording that never appear in training):
 
-| | Policy only | Policy + precedents |
-|---|---|---|
-| All claims | 74% | **90%** |
-| House-rule cases (only a correction can fix these) | 0% | **100%** |
+|                                                    | Policy only | Policy + precedents |
+| -------------------------------------------------- | ----------- | ------------------- |
+| All claims                                         | 74%         | **90%**             |
+| House-rule cases (only a correction can fix these) | 0%          | **100%**            |
 
 **Permanent fix: the trained adapter** (Mubit adapter v1, Qwen3-4B, trained on our verified examples):
 
-| | |
-|---|---|
-| Mubit's held-out exam | base model 0% → adapter **69%** |
-| Live silent test | 15 of 21 replies judged as good as the provider's (71%) |
+|                         |                                                                                                                         |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Mubit's held-out exam   | base model 0% → adapter **69%**                                                                                         |
+| Live silent test        | 15 of 21 replies judged as good as the provider's (71%)                                                                 |
 | Contractor dinner claim | Same verdict as GPT, and it cites precedent P2 by itself, **4.2× faster** (579 ms vs 2.43 s) with **3.7× fewer tokens** |
 
 Training data so far: 350 verified examples (38 of them from Night Shift), 32 of them corrections.
@@ -96,13 +96,13 @@ Mubit's API doesn't expose adapter results, so the adapter figures are copied fr
 
 ## The app
 
-| Page | |
-|---|---|
-| **Inbox** `/` | Claims with the model's verdict. Open one to confirm or override it. |
-| **Submit** `/submit` | The employee form, with four example claims the policy is unclear about. |
-| **Policy** `/policy` | Edit the policy and see open claims re-checked, with a diff of what changed. Precedents and whether the policy now covers them. |
+| Page                      |                                                                                                                                                 |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Inbox** `/`             | Claims with the model's verdict. Open one to confirm or override it.                                                                            |
+| **Submit** `/submit`      | The employee form, with four example claims the policy is unclear about.                                                                        |
+| **Policy** `/policy`      | Edit the policy and see open claims re-checked, with a diff of what changed. Precedents and whether the policy now covers them.                 |
 | **Learning loop** `/loop` | The evaluation, the adapter evidence, a step-by-step trace of one correction into the model, the latest Night Shift, and the recorded examples. |
-| **Night Shift** `/play` | The demo game: train the apprentice overnight, then watch the 09:00 audit. Best on a laptop or a landscape phone. |
+| **Night Shift** `/play`   | The demo game: train the apprentice overnight, then watch the 09:00 audit. Best on a laptop or a landscape phone.                               |
 
 ## Generating your own data
 
@@ -117,28 +117,21 @@ Both make real model calls, so they use Mubit credit.
 
 ## Code map
 
-| File | |
-|---|---|
-| `lib/prompt.ts` | The frozen system prompt, the user-message layout and the verdict schema |
-| `lib/mubit.ts` | The Mubit client, record modes and readable error messages |
-| `lib/verdict.ts` | One model call, and a cap of 6 calls in flight across the app |
-| `lib/decide.ts` | First pass, approve, override, and the verified commit |
-| `lib/precedents.ts` | Tagging claims and matching precedents to them |
-| `lib/refresh.ts` | Policy versions, re-checking open claims, retiring precedents |
-| `lib/generate.ts` | Synthetic claims with known answers, for seeding and evaluation |
-| `lib/eval.ts` | The held-out evaluation |
-| `lib/game.ts` | Night Shift: per-shift rulings, the two rounds and the 09:00 audit |
-| `lib/encounters.ts`, `lib/audit.ts` | The game's claims, and the six unseen audit claims with their answers |
-| `lib/store.ts` | The JSON store, starting from `demo/store.json` |
-| `app/play/night-shift.tsx` | The game scene |
+| File                                |                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------ |
+| `lib/prompt.ts`                     | The frozen system prompt, the user-message layout and the verdict schema |
+| `lib/mubit.ts`                      | The Mubit client, record modes and readable error messages               |
+| `lib/verdict.ts`                    | One model call, and a cap of 6 calls in flight across the app            |
+| `lib/decide.ts`                     | First pass, approve, override, and the verified commit                   |
+| `lib/precedents.ts`                 | Tagging claims and matching precedents to them                           |
+| `lib/refresh.ts`                    | Policy versions, re-checking open claims, retiring precedents            |
+| `lib/generate.ts`                   | Synthetic claims with known answers, for seeding and evaluation          |
+| `lib/eval.ts`                       | The held-out evaluation                                                  |
+| `lib/game.ts`                       | Night Shift: per-shift rulings, the two rounds and the 09:00 audit       |
+| `lib/encounters.ts`, `lib/audit.ts` | The game's claims, and the six unseen audit claims with their answers    |
+| `lib/store.ts`                      | The JSON store, starting from `demo/store.json`                          |
+| `app/play/night-shift.tsx`          | The game scene                                                           |
 
 Next.js 16 (App Router, Cache Components), React 19, Tailwind v4, shadcn/ui (Base UI). Checks: `npm run lint` and `npm run build`.
-
-## Limitations
-
-- **No login.** There are no user accounts or roles: it's a single-reviewer demo meant to run on your own machine.
-- **A JSON file as the database**, fine for a demo, not for concurrent users at scale. It also means there's no hosted version: serverless platforms don't keep local files.
-- **Synthetic training data.** Seeded claims are generated from templates with known answers; the evaluation uses separate templates and vocabulary so it measures generalisation, not recall.
-- **The adapter can't be called from the app.** Mubit serves it in silent-test mode only, so the side-by-side comparison comes from Mubit's own silent-test pairs.
 
 Built by Plamen Dochev.
