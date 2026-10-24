@@ -30,12 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  ADAPTER_EVIDENCE,
-  ADAPTER_STAGES,
-  type AdapterStage,
-  type PairReply,
-} from "@/lib/adapter-evidence";
+import { ADAPTER_EVIDENCE, type PairReply } from "@/lib/adapter-evidence";
 import { CorrectionTrace } from "./correction-trace";
 import { londonTime, money } from "@/lib/status";
 import { readStore } from "@/lib/store";
@@ -456,13 +451,6 @@ function Comparison({
   );
 }
 
-const STAGE_LABEL: Record<AdapterStage, string> = {
-  trained: `Trained · ${londonTime(ADAPTER_EVIDENCE.trainingStartedAt, { day: "numeric", month: "short" })}`,
-  shadow: `Shadow · ${ADAPTER_EVIDENCE.shadowShare * 100}%`,
-  canary: "Canary",
-  live: "Live",
-};
-
 // The permanent fix: the open model Mubit trained on verified corrections.
 function AdapterEvidence({
   claims,
@@ -474,7 +462,6 @@ function AdapterEvidence({
   const e = ADAPTER_EVIDENCE;
   const claim = claims.find((c) => c.id === e.pair.claimId);
   const pct = (n: number) => `${Math.round(n * 100)}%`;
-  const current = ADAPTER_STAGES.indexOf(e.stage);
 
   return (
     <>
@@ -562,36 +549,6 @@ function AdapterEvidence({
         />
       </CellGrid>
 
-      <Cell className="flex flex-col gap-4 screen-line-bottom">
-        <ol className="flex flex-wrap items-center gap-2">
-          {ADAPTER_STAGES.map((stage, i) => (
-            <li key={stage} className="flex items-center gap-2">
-              {i > 0 && (
-                <ArrowRight className="size-3.5 text-muted-foreground" />
-              )}
-              <span
-                aria-current={i === current ? "step" : undefined}
-                className={cn(
-                  "rounded-md px-2.5 py-1 font-mono text-xs ring-1",
-                  i === current &&
-                    "bg-primary text-primary-foreground ring-primary",
-                  i < current && "text-foreground ring-border",
-                  i > current && "text-muted-foreground ring-border",
-                )}
-              >
-                {STAGE_LABEL[stage]}
-              </span>
-            </li>
-          ))}
-        </ol>
-        <p className="max-w-3xl text-sm text-muted-foreground">
-          The provider still answers every claim. Mubit sends{" "}
-          {pct(e.shadowShare)} of them to the adapter as a silent copy and
-          grades each pair; it moves to canary after {e.live.pairsForCanary}{" "}
-          graded pairs with a lower bound above {pct(e.live.floor)}. So far:{" "}
-          {e.live.graded} pairs, lower bound {pct(e.live.lowerBound)}.
-        </p>
-      </Cell>
     </>
   );
 }

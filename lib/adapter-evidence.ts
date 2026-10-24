@@ -4,9 +4,6 @@ import type { Verdict } from "./prompt";
 // from the console's Adapters page and one silent-test pair in Requests.
 // Update them when a new version trains.
 
-export const ADAPTER_STAGES = ["trained", "shadow", "canary", "live"] as const;
-export type AdapterStage = (typeof ADAPTER_STAGES)[number];
-
 export type PairReply = {
   model: string;
   verdict: Verdict;
@@ -24,18 +21,10 @@ export const ADAPTER_EVIDENCE = {
   base: "Qwen3-4B-Instruct-2507",
   // When v1's training started (console: 23 Oct, 20:35:31 London time).
   trainingStartedAt: "2026-10-23T19:35:31Z",
-  stage: "shadow" as AdapterStage,
-  shadowShare: 0.1,
   // The engine's exam on held-out examples: the untrained base vs the adapter.
   exam: { base: 0, adapter: 0.692, cases: 13 },
   // Silent-test pairs, each judged by gemini-3.8-flash against the provider's reply.
-  live: {
-    passed: 15,
-    graded: 21,
-    pairsForCanary: 50,
-    lowerBound: 0.413,
-    floor: 0.75,
-  },
+  live: { passed: 15, graded: 21 },
   // One silent-test pair: a claim covered by precedent P2 (contractors count as team).
   pair: {
     claimId: "C253",
