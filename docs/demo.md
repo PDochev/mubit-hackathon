@@ -37,9 +37,9 @@ Then prove it's a real model update: follow the ruling's `mreq_` ID into the **M
 
 | Claim | Number |
 |---|---|
-| Held-out eval, all claims (50 unseen) | 76% → **88%** |
-| Held-out eval, house-rule cases | 11% → **100%** |
-| Training data | 312 verified examples, 32 of them corrections |
+| Held-out eval, all claims (50 unseen) | 78% → **90%** |
+| Held-out eval, house-rule cases | 22% → **100%** (2 of 9 → 9 of 9) |
+| Training data | 343 verified examples (31 from Night Shift), 32 of them corrections |
 | Adapter v1, Mubit's exam | 0% → **69%** |
 | Adapter v1, silent test | 15 of 21 pairs as good as the provider (71%). Refresh from the console before the demo. |
 | Adapter v1, contractor claim | **4.2× faster** (579 ms vs 2.43 s), **3.7× fewer tokens** (41 vs 150) |
@@ -56,7 +56,7 @@ Then prove it's a real model update: follow the ruling's `mreq_` ID into the **M
 | 1:20–1:40 | **03:00, round 2.** Priya's lunch → **"USING R1 · I'D REJECT"** | "New claim, new details. It applies my ruling with no help." **Pause and let it land.** | **Use of Mubit** |
 | 1:40–2:00 | 09:00 audit: stamps land, **3/6 → 5/6** | "Six claims it has never seen: before my rulings and after." | Technical |
 | 2:00–2:35 | Shift report → Learning loop → **Mubit console, the same `mreq_` ID** → adapter evidence | "That ruling is now a verified example in Mubit. Here's what the last version learned from rulings exactly like it: the open model answers the contractor claim the way finance does, cites the precedent itself, 4.2× faster, with 3.7× fewer tokens. Every ruling feeds the next version." | **Use of Mubit**, Own intelligence |
-| 2:35–2:50 | Learning loop: held-out eval | "On 50 unseen claims, the cases only a correction can fix go from 11% to 100%." | Technical |
+| 2:35–2:50 | Learning loop: held-out eval | "On 50 unseen claims, the cases only a correction can fix go from 22% to 100%." | Technical |
 | 2:50–3:00 | Back to the inbox | "Every ruling becomes a model update. That's Precedent." | |
 
 ## Preparation checklist
