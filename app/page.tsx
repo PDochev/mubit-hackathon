@@ -10,7 +10,6 @@ import {
   VERDICT_LABEL,
   VerdictBadge,
 } from "@/components/app-ui";
-import { QrDialog } from "@/components/qr-dialog";
 import { SubmitButton } from "@/components/submit-button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
@@ -87,9 +86,6 @@ export default function Page({ searchParams }: PageProps<"/">) {
         subtitle="Teach it once."
         description="The model checks every claim against the policy and your precedents. Confirm it, or override it with a reason: the override becomes a precedent and a corrected training example."
       >
-        <Suspense>
-          <QrDialog />
-        </Suspense>
         <Link href="/submit" className={buttonVariants({ variant: "outline" })}>
           Submit an expense
           <ArrowRight data-icon="inline-end" />

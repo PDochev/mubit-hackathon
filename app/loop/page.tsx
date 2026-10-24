@@ -17,7 +17,6 @@ import {
   StatCell,
   VerdictBadge,
 } from "@/components/app-ui";
-import { QrDialog, submitQr } from "@/components/qr-dialog";
 import { SubmitButton } from "@/components/submit-button";
 import { buttonVariants } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -56,9 +55,6 @@ export default function Page() {
         subtitle="becomes a model update."
         description="Overrides apply straight away as precedents, and are recorded through Mubit as corrected training examples for a task-adapted open model."
       >
-        <Suspense>
-          <QrDialog />
-        </Suspense>
         <Link
           href={MUBIT_CONSOLE}
           target="_blank"
@@ -113,7 +109,6 @@ async function Loop() {
   const before = accuracy(houseRule.filter((c) => !hadRuling(c)));
   const after = accuracy(houseRule.filter(hadRuling));
 
-  const { url: submitUrl, src: qr } = await submitQr(240);
   const run = evals.at(-1);
 
   return (
@@ -214,7 +209,7 @@ async function Loop() {
 
       <HatchBand />
 
-      <CellGrid className="lg:grid-cols-[minmax(0,1fr)_320px]">
+      <CellGrid>
         <Tabs defaultValue="latest" className="min-w-0 gap-0 bg-background">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-5 sm:px-8">
             <div className="flex flex-col gap-0.5">
@@ -242,25 +237,6 @@ async function Loop() {
             <ExampleTable claims={corrected.toReversed().slice(0, 10)} />
           </TabsContent>
         </Tabs>
-
-        <Cell className="relative flex flex-col items-center gap-4">
-          <div className="flex w-full items-baseline justify-between">
-            <h2 className="text-lg font-semibold tracking-tight">Try it</h2>
-            <MonoLabel>from your phone</MonoLabel>
-          </div>
-          <p className="-rotate-3 self-start font-hand text-xl text-muted-foreground">
-            scan me, submit an expense ↓
-          </p>
-          {/* eslint-disable-next-line @next/next/no-img-element -- data URL QR code */}
-          <img
-            src={qr}
-            alt={`QR code for ${submitUrl}`}
-            className="rounded-xl p-2 ring-1 ring-border"
-            width={220}
-            height={220}
-          />
-          <MonoLabel>{submitUrl}</MonoLabel>
-        </Cell>
       </CellGrid>
     </>
   );
