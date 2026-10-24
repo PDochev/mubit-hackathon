@@ -173,11 +173,6 @@ export function NightShift({ pixelFont, typeFont }: { pixelFont: string; typeFon
         <div className="ns-rain absolute top-[22%] left-[24.5%] h-[42%] w-[50%] opacity-60" />
         <div className="ns-glow ns-flicker absolute top-[36%] left-[68%] h-[40%] w-[26%]" />
 
-        {/* Desk props, at the art's pixel scale, standing on the desk top */}
-        <Prop src="binder" w={26} left={27} />
-        <Prop src="mug" w={28} left={37} />
-        <Prop src="stamp" w={20} left={47} />
-
         <Apprentice phase={phase} review={review} stamp={stamp} error={error} typeFont={typeFont} />
 
         {current && phase !== "over" && (
@@ -612,17 +607,5 @@ function ShiftOver({ shift, onRestart }: { shift: ShiftView; onRestart: () => vo
         <PixelButton onClick={onRestart}>NEW SHIFT ▶</PixelButton>
       </div>
     </Panel>
-  );
-}
-
-function Prop({ src, w, left }: { src: string; w: number; left: number }) {
-  return (
-    // eslint-disable-next-line @next/next/no-img-element -- pixel art must not be resampled
-    <img
-      src={`/play/${src}.png`}
-      alt=""
-      className="absolute bottom-[30.5%] h-auto"
-      style={{ left: `${left}%`, width: `${w * ART_PX}cqw` }}
-    />
   );
 }
