@@ -254,7 +254,7 @@ async function Inbox({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
             </Table>
           )}
           {claims.length < matching.length && (
-            <div className="flex items-center justify-between gap-3 border-t px-4 py-4 text-sm sm:px-8">
+            <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-4 text-sm sm:px-8">
               <span className="text-muted-foreground">
                 Showing the newest {claims.length} of {matching.length}.
               </span>
