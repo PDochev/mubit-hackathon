@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Verdict } from "@/lib/prompt";
 import type { Review, ShiftView } from "@/lib/shift";
 import { cn } from "@/lib/utils";
 import { ADAPTER_EVIDENCE } from "@/lib/adapter-evidence";
 import { loadShift, reviewClaim, settleClaim, startAudit, startShift } from "./actions";
-import { ENCOUNTERS, ROUND_2, type Encounter } from "./encounters";
+import { ENCOUNTERS, ROUND_2, type Encounter } from "@/lib/encounters";
 
 // Art is PixelLab output in public/play. The background is 400x248, so one art
 // pixel is 0.25cqw; every sprite is sized at that same scale.
@@ -79,6 +79,25 @@ export function NightShift({ pixelFont, typeFont }: { pixelFont: string; typeFon
   const [stamp, setStamp] = useState<Verdict | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // The next claim's first pass, asked while you read the last result so it
+  // is usually ready by the time you click on. Kept here so the same claim
+  // is never asked twice at once (the server only dedupes finished asks).
+  const ahead = useRef<{ id: string; review: Promise<Review> } | null>(null);
+
+  function ask(id: string): Promise<Review> {
+    const early = ahead.current;
+    ahead.current = null;
+    return early?.id === id ? early.review : reviewClaim(id);
+  }
+
+  function askAhead(next: ShiftView) {
+    const e = nextUp(next);
+    if (!e) return;
+    const review = reviewClaim(e.id);
+    review.catch(() => {}); // a failure shows up when the claim is opened
+    ahead.current = { id: e.id, review };
+  }
+
   // Opens the next unruled claim and asks the apprentice about it. Asking
   // again about a claim it already answered costs nothing: the server keeps
   // the first pass. Between rounds it stops at 03:00 (unless `go`), and
@@ -101,7 +120,7 @@ export function NightShift({ pixelFont, typeFont }: { pixelFont: string; typeFon
     }
     setCurrent(e);
     setPhase("asking");
-    reviewClaim(e.id)
+    ask(e.id)
       .then((r) => {
         setReview(r);
         setShift(r.shift);
@@ -142,6 +161,7 @@ export function NightShift({ pixelFont, typeFont }: { pixelFont: string; typeFon
         }
         setReview(r);
         setPhase("done");
+        askAhead(r.shift);
       })
       .catch(() => {
         setError("Couldn't record that. Try again.");
@@ -158,6 +178,7 @@ export function NightShift({ pixelFont, typeFont }: { pixelFont: string; typeFon
   }
 
   function restart() {
+    ahead.current = null;
     setPhase("loading");
     startShift()
       .then(open)
@@ -171,7 +192,12 @@ export function NightShift({ pixelFont, typeFont }: { pixelFont: string; typeFon
     setPhase("auditing");
     setError(null);
     startAudit()
-      .then((s) => {
+      .then(({ shift: s, error: message }) => {
+        if (!s) {
+          setError(message ?? "The audit couldn't reach the apprentice. Try again.");
+          setPhase("audit-intro");
+          return;
+        }
         setShift(s);
         setPhase("audit");
       })
@@ -199,6 +225,14 @@ export function NightShift({ pixelFont, typeFont }: { pixelFont: string; typeFon
         stamp && phase !== "ready" && "ns-shake",
       )}
     >
+      {/* The scene is laid out for a landscape screen; an upright phone
+          shows it too small to read, so ask for a turn instead. */}
+      <div className="absolute inset-0 z-50 hidden flex-col items-center justify-center gap-4 bg-[#05060f] p-8 text-center text-[#e8ecff] portrait:max-md:flex">
+        {/* eslint-disable-next-line @next/next/no-img-element -- pixel art must not be resampled */}
+        <img src="/play/robot-confused.png" alt="" className="w-32 [image-rendering:pixelated]" />
+        <p className="text-xl text-[var(--ns-amber)]">TURN YOUR PHONE SIDEWAYS</p>
+        <p className="text-sm text-[#9aa3e0]">The night shift needs the whole desk.</p>
+      </div>
       <div className="@container absolute top-[min(0px,calc(83dvh-max(100vw,100dvh*400/248)*0.434))] left-1/2 aspect-[400/248] w-[max(100vw,calc(100dvh*400/248))] -translate-x-1/2 portrait:top-1/2 portrait:w-screen portrait:-translate-y-1/2">
         {/* The office, with live rain on the glass and a flickering lamp */}
         {/* eslint-disable-next-line @next/next/no-img-element -- pixel art must not be resampled */}
@@ -324,7 +358,7 @@ function Hud({ shift, onRestart }: { shift: ShiftView | null; onRestart: () => v
         <span className="text-[var(--ns-learn)] tabular-nums">{hasScore ? `${shift?.accuracy}%` : "--"}</span>
       </div>
       <div className="flex items-center gap-[2cqw]">
-        <span>PRECEDENTS {shift?.precedents.length ?? 0}</span>
+        <span>RULINGS {shift?.precedents.length ?? 0}</span>
         <button type="button" onClick={onRestart} className="text-[#7f88c9] hover:text-white">
           NEW SHIFT
         </button>

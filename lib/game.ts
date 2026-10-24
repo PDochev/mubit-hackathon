@@ -1,6 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
-import { encounter, ROUND_1, ROUND_2 } from "@/app/play/encounters";
+import { encounter, ROUND_1, ROUND_2 } from "./encounters";
 import { AUDIT } from "./audit";
 import { HOUSE_RULES } from "./generate";
 import { describeError } from "./mubit";
@@ -12,6 +12,9 @@ import type { AuditAnswer, Decision, Game, GameClaim, Precedent } from "./types"
 import { verdictFor } from "./verdict";
 
 const COOKIE = "night-shift";
+// A shift's rulings are numbered R1, R2… so they never read as the inbox's
+// precedents (P2, P4…), which cover the same topics with other numbers.
+const RULING = "R";
 const TEACHINGS: Teaching[] = Object.values(HOUSE_RULES);
 
 function stageOf(game: Game): ShiftView["stage"] {
@@ -277,7 +280,7 @@ export async function ruleClaim(
       );
       if (same) return same;
       const precedent: Precedent = {
-        id: nextId("P", g.precedents),
+        id: nextId(RULING, g.precedents),
         createdAt: new Date().toISOString(),
         claimId: row.claim.id,
         summary: summariseClaim(row.claim),

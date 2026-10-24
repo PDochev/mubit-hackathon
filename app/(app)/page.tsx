@@ -103,6 +103,8 @@ export default function Page({ searchParams }: PageProps<"/">) {
   );
 }
 
+const PAGE_SIZE = 50;
+
 async function Inbox({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
   await connection();
   const params = await searchParams;
@@ -113,7 +115,12 @@ async function Inbox({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
   const requested = FILTERS.find((f) => f.id === params.filter);
   const queueEmpty = !store.claims.some(FILTERS[0].match);
   const filter = requested ?? (queueEmpty ? FILTERS[3] : FILTERS[0]);
-  const claims = store.claims.filter(filter.match).reverse();
+  const matching = store.claims.filter(filter.match).reverse();
+  // The seeded history runs to hundreds of claims; show the newest page
+  // unless every claim is asked for.
+  const showAll = params.all === "1";
+  const claims = showAll ? matching : matching.slice(0, PAGE_SIZE);
+  const more = showAll ? "&all=1" : "";
   const selected = store.claims.find((c) => c.id === selectedId);
 
   return (
@@ -142,7 +149,7 @@ async function Inbox({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
             Nothing needs review. Showing every claim, newest first.
           </span>
         ) : (
-          <MonoLabel>{claims.length} claims</MonoLabel>
+          <MonoLabel>{matching.length} claims</MonoLabel>
         )}
       </div>
 
@@ -186,7 +193,7 @@ async function Inbox({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
                     >
                       <TableCell>
                         <Link
-                          href={`/?filter=${filter.id}&claim=${c.id}`}
+                          href={`/?filter=${filter.id}&claim=${c.id}${more}`}
                           scroll={false}
                           className="group flex flex-col"
                         >
@@ -245,6 +252,20 @@ async function Inbox({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
                 })}
               </TableBody>
             </Table>
+          )}
+          {claims.length < matching.length && (
+            <div className="flex items-center justify-between gap-3 border-t px-4 py-4 text-sm sm:px-8">
+              <span className="text-muted-foreground">
+                Showing the newest {claims.length} of {matching.length}.
+              </span>
+              <Link
+                href={`/?filter=${filter.id}&all=1`}
+                scroll={false}
+                className={buttonVariants({ variant: "ghost", size: "sm" })}
+              >
+                Show all
+              </Link>
+            </div>
           )}
         </div>
         {selected && (

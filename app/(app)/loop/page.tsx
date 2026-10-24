@@ -39,7 +39,7 @@ import {
 import { CorrectionTrace } from "./correction-trace";
 import { londonTime, money } from "@/lib/status";
 import { readStore } from "@/lib/store";
-import type { ClaimRecord, EvalComparison, Precedent } from "@/lib/types";
+import type { ClaimRecord, EvalComparison, Game, Precedent } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const FIRST_TRAINING_AT = 25;
@@ -85,9 +85,14 @@ function accuracy(claims: ClaimRecord[]) {
 
 async function Loop() {
   await connection();
-  const { claims, precedents, evals } = await readStore();
+  const { claims, precedents, evals, games = [] } = await readStore();
   const committed = claims.filter((c) => c.commit);
   const verified = committed.filter((c) => c.commit!.status === "verified");
+  // Night Shift rulings are recorded the same way, so they count too.
+  const gameVerified = games
+    .flatMap((g) => g.claims)
+    .filter((c) => c.commit?.status === "verified").length;
+  const sent = verified.length + gameVerified;
   const corrected = committed.filter(
     (c) => c.final && c.final.verdict !== c.firstPass?.verdict,
   );
@@ -117,18 +122,18 @@ async function Loop() {
         <StatCell
           index={0}
           label="training examples sent"
-          value={verified.length}
+          value={sent}
           hint={
             <div className="flex flex-col gap-2">
               <Progress
-                value={Math.min(
-                  100,
-                  (verified.length / FIRST_TRAINING_AT) * 100,
-                )}
+                value={Math.min(100, (sent / FIRST_TRAINING_AT) * 100)}
               />
-              {verified.length >= FIRST_TRAINING_AT
+              {sent >= FIRST_TRAINING_AT
                 ? "Enough for Mubit to train"
                 : `${FIRST_TRAINING_AT} needed for the first training`}
+              {gameVerified > 0 && (
+                <span>{gameVerified} from Night Shift</span>
+              )}
             </div>
           }
         />
@@ -209,6 +214,8 @@ async function Loop() {
 
       <HatchBand />
 
+      <NightShift games={games} />
+
       <CellGrid>
         <Tabs defaultValue="latest" className="min-w-0 gap-0 bg-background">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-5 sm:px-8">
@@ -238,6 +245,94 @@ async function Loop() {
           </TabsContent>
         </Tabs>
       </CellGrid>
+    </>
+  );
+}
+
+// The Night Shift audited most recently (or, failing that, the latest one
+// with a recorded ruling), so the game's shift report continues here.
+function NightShift({ games }: { games: Game[] }) {
+  const game =
+    games
+      .filter((g) => g.audit)
+      .toSorted((a, b) => a.audit!.at.localeCompare(b.audit!.at))
+      .at(-1) ?? games.findLast((g) => g.claims.some((c) => c.commit));
+  if (!game) return null;
+  const recorded = game.claims.filter((c) => c.commit);
+  const verified = recorded.filter((c) => c.commit!.status === "verified");
+  const ruled = game.claims.filter((c) => c.final && c.firstPass);
+  const agreed = ruled.filter((c) => c.final!.verdict === c.firstPass!.verdict);
+  const right = (key: "untrained" | "trained") =>
+    game.audit?.results.filter((r) => r[key].verdict === r.expected).length ?? 0;
+
+  return (
+    <>
+      <SectionHeader title="Night Shift">
+        <div className="flex items-center gap-3">
+          <MonoLabel className="hidden sm:inline">
+            {game.audit ? "audited" : "started"} ·{" "}
+            {londonTime(game.audit?.at ?? game.createdAt, { hour: "2-digit", minute: "2-digit" })}
+          </MonoLabel>
+          <Link href="/play" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Play
+            <ArrowRight data-icon="inline-end" />
+          </Link>
+        </div>
+      </SectionHeader>
+      <CellGrid className="sm:grid-cols-3">
+        <StatCell
+          index={0}
+          label="09:00 audit"
+          value={
+            game.audit ? (
+              <BeforeAfter
+                before={`${right("untrained")}/${game.audit.results.length}`}
+                after={`${right("trained")}/${game.audit.results.length}`}
+              />
+            ) : (
+              "—"
+            )
+          }
+          hint="Unseen claims, before vs after the night's rulings"
+        />
+        <StatCell
+          index={1}
+          label="rulings"
+          value={game.precedents.length}
+          hint="Corrections the player wrote, applied for the rest of the night"
+        />
+        <StatCell
+          index={2}
+          label="recorded through mubit"
+          value={`${verified.length}/${recorded.length}`}
+          hint={`Verified training examples · agreed with the player on ${agreed.length} of ${ruled.length}`}
+        />
+      </CellGrid>
+      {game.precedents.length > 0 && (
+        <Cell className="flex flex-col gap-2 screen-line-bottom">
+          {game.precedents.map((p) => {
+            const commit = game.claims.find(
+              (c) => c.final?.precedentId === p.id,
+            )?.commit;
+            return (
+              <div
+                key={p.id}
+                className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm"
+              >
+                <PrecedentId id={p.id} />
+                <VerdictBadge verdict={p.verdict} />
+                <span className="min-w-0 flex-1">{p.reason}</span>
+                {commit?.mubitRequestId && (
+                  <span title={commit.mubitRequestId}>
+                    <MonoLabel>{shortId(commit.mubitRequestId)}</MonoLabel>
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </Cell>
+      )}
+      <HatchBand />
     </>
   );
 }

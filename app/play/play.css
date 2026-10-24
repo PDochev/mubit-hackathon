@@ -146,8 +146,13 @@
   }
 }
 
+/* The resting style is the last frame, and only the first frame is held
+   (backwards). With "both", a finished animation can stop at progress
+   0.99999…, which steps(3) rounds down to the second-to-last frame. */
 .ns-stamp-mark {
-  animation: ns-stamp 0.25s steps(3) both;
+  transform: rotate(-12deg);
+  opacity: 0.9;
+  animation: ns-stamp 0.25s steps(3) backwards;
 }
 
 @keyframes ns-stamp {

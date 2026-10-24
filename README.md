@@ -35,6 +35,17 @@ submit ─▶ model verdict ─▶ finance confirms ─────────�
 - **Every training example is traceable.** Each commit stores Mubit's request ID (`mreq_…`), shown in the inbox and on the Learning loop page.
 - **Mubit trains the adapter.** From these examples Mubit trained adapter v1 on Qwen3-4B, which is now in a 10% shadow test against the provider model.
 
+## Night Shift: the demo game
+
+`/play` turns the same loop into a two-minute game. You're on the night shift at Northwind, training an AI apprentice that knows the written policy and nothing else.
+
+1. **23:00, round 1.** Four coworkers bring claims. The apprentice stamps each one (approve, reject or needs info, with the clause). Agree with it, or stamp your own verdict and pick the one-sentence reason. Each disagreement becomes a *ruling* (R1, R2, …) for the rest of the night.
+2. **03:00, round 2.** The same kinds of cases come back with new details. The apprentice now applies your rulings unprompted ("USING R1 · I'D REJECT").
+3. **09:00 audit.** Six claims it has never seen, each asked twice: with no rulings (as it started the night) and with yours. The board shows both against the right answer.
+4. **Shift report.** Agreement in round 1 vs round 2, the audit before → after, and the Mubit request ID of every recorded ruling. The Learning loop page shows the latest audited shift too.
+
+It runs on the same engine as the inbox (`lib/game.ts`): first passes are `metadata`, and every ruling is committed with `full` recording and verified like an inbox correction, so a game is real training data. In our test run the apprentice got both round-2 repeats right on its own, the audit went from **3/6 to 5/6**, and all 7 rulings were recorded and verified. A full night is about 25 model calls.
+
 ## Results
 
 **Instant fix: precedents** (held-out evaluation, 50 claims written with people, merchants and wording that never appear in training):
@@ -63,7 +74,8 @@ Mubit's API doesn't expose adapter results, so the adapter figures are copied fr
 | **Inbox** `/` | Claims with the model's verdict. Open one to confirm or override it. |
 | **Submit** `/submit` | The employee form, with four example claims the policy is unclear about. |
 | **Policy** `/policy` | Edit the policy and see open claims re-checked, with a diff of what changed. Precedents and whether the policy now covers them. |
-| **Learning loop** `/loop` | The evaluation, the adapter evidence, a step-by-step trace of one correction into the model, and the recorded examples. |
+| **Learning loop** `/loop` | The evaluation, the adapter evidence, a step-by-step trace of one correction into the model, the latest Night Shift, and the recorded examples. |
+| **Night Shift** `/play` | The demo game: train the apprentice overnight, then watch the 09:00 audit. Best on a laptop or a landscape phone. |
 
 ## Run it
 
@@ -96,12 +108,15 @@ Both make real model calls, so they use Mubit credit.
 | `lib/refresh.ts` | Policy versions, re-checking open claims, retiring precedents |
 | `lib/generate.ts` | Synthetic claims with known answers, for seeding and evaluation |
 | `lib/eval.ts` | The held-out evaluation |
+| `lib/game.ts` | Night Shift: per-shift rulings, the two rounds and the 09:00 audit |
+| `lib/encounters.ts`, `lib/audit.ts` | The game's claims, and the six unseen audit claims with their answers |
+| `app/play/night-shift.tsx` | The game scene |
 
 Next.js 16 (App Router, Cache Components), React 19, Tailwind v4, shadcn/ui (Base UI).
 
 ## Limitations
 
-- **Demo-grade access control.** Finance actions only work from `localhost` (`lib/reviewer.ts`); there is no login.
+- **Demo-grade access control.** Finance actions only work from `localhost` (`lib/reviewer.ts`); there is no login. Anyone who can reach the app can play Night Shift, which uses model calls.
 - **A JSON file as the database**, fine for a demo, not for concurrent users at scale.
 - **Synthetic training data.** Seeded claims are generated from templates with known answers; the evaluation uses separate templates and vocabulary so it measures generalisation, not recall.
 - **The adapter can't be called from the app.** Mubit serves it in shadow mode only, so the side-by-side comparison comes from Mubit's own silent-test pairs.
