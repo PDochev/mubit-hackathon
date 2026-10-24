@@ -56,31 +56,6 @@ submit ─▶ model verdict ─▶ finance confirms ─────────�
 | Policy edit | Saving a new policy version re-checks every open claim and tests each precedent against the new text. A precedent the policy now covers can be retired. | `metadata` |
 | Evaluation | 50 unseen claims (new people, merchants and wording), each asked with the policy alone and with the precedents. | `metadata` |
 
-## Architecture
-
-```
- Browser                      Next.js 16 server (server actions)                      Mubit
-┌──────────────┐     ┌─────────────────────────────────────────────┐     ┌──────────────────────────────┐
-│ Inbox  /     │     │ app/actions.ts ─▶ lib/decide.ts             │     │ api.mubit.ai/openai/v1       │
-│ Submit       │────▶│   first pass · override · verified commit   │     │   records the call (header   │
-│ Policy       │     │ app/play/actions.ts ─▶ lib/game.ts          │     │   x-middleware-record)       │
-│ Learning loop│     │   rulings R1… · rounds · 09:00 audit        │     │   ─▶ gpt-6-luna              │
-│ Night Shift  │     │ lib/refresh.ts (policy) · lib/eval.ts       │     │   ─▶ trains Qwen3-4B adapter │
-└──────────────┘     │            │                                │     │      on full recordings      │
-                     │            ▼                                │     └──────────────▲───────────────┘
-                     │ lib/precedents.ts  match precedents by tags │                    │
-                     │ lib/prompt.ts      frozen prompt + schema   │                    │
-                     │ lib/verdict.ts     ≤ 6 calls in flight  ────┼────────────────────┘
-                     │ lib/mubit.ts       OpenAI SDK client        │
-                     │ lib/store.ts       data/store.json          │
-                     └─────────────────────────────────────────────┘
-```
-
-- **One call path.** Every model call, from the inbox, the game, policy re-checks or the evaluation, goes through `lib/verdict.ts` → `lib/mubit.ts`. So the frozen prompt, the verdict schema and the concurrency cap apply everywhere.
-- **The record mode is chosen by the caller.** `metadata` for anything no human has checked, `full` only for the commit after a human verdict.
-- **State is one JSON file.** All writes go through `updateStore()`, which serialises read-modify-write. Pages are React Server Components that read it per request.
-- **Precedents are retrieved, not fine-tuned in.** A claim gets up to 5 precedents from the same category that share at least two tags. That's the instant fix; the adapter is the permanent one.
-
 ## How it uses Mubit
 
 - **Every LLM call goes through Mubit**, via its OpenAI-compatible endpoint (`https://api.mubit.ai/openai/v1`, model `gpt-6-luna`). See `lib/mubit.ts`.
