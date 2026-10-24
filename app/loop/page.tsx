@@ -4,12 +4,14 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { runEvaluation } from "@/app/actions";
 import {
+  BeforeAfter,
   Cell,
   CellGrid,
   FigCaption,
   HatchBand,
   MonoLabel,
   PageHeader,
+  PrecedentId,
   rise,
   SectionHeader,
   StatCell,
@@ -150,7 +152,12 @@ async function Loop() {
         <StatCell
           index={3}
           label="house rules, live claims"
-          value={`${pct(before.right, before.n)} → ${pct(after.right, after.n)}`}
+          value={
+            <BeforeAfter
+              before={pct(before.right, before.n)}
+              after={pct(after.right, after.n)}
+            />
+          }
           hint={`Right first time on real traffic, before vs after a matching precedent existed (${before.n} / ${after.n} claims)`}
         />
       </CellGrid>
@@ -294,7 +301,12 @@ function ExampleTable({ claims }: { claims: ClaimRecord[] }) {
               {c.final && c.final.verdict !== c.firstPass?.verdict ? (
                 <span className="font-medium">
                   Corrected
-                  {c.final.precedentId ? ` → ${c.final.precedentId}` : ""}
+                  {c.final.precedentId && (
+                    <>
+                      {" → "}
+                      <PrecedentId id={c.final.precedentId} />
+                    </>
+                  )}
                 </span>
               ) : (
                 <span className="text-muted-foreground">Confirmed</span>
@@ -343,15 +355,15 @@ function Comparison({
           <span className="text-3xl font-semibold tracking-tighter text-muted-foreground/60 tabular-nums line-through decoration-1">
             {before}%
           </span>
-          <span className="text-6xl font-semibold tracking-tighter tabular-nums sm:text-7xl">
+          <span className="text-6xl font-semibold tracking-tighter text-learn tabular-nums sm:text-7xl">
             {after}%
           </span>
         </div>
         <div className="flex flex-col gap-3">
           {[
-            { label: "policy only", value: before },
-            { label: "policy + precedents", value: after },
-          ].map(({ label, value }) => (
+            { label: "policy only", value: before, learned: false },
+            { label: "policy + precedents", value: after, learned: true },
+          ].map(({ label, value, learned }) => (
             <div key={label} className="flex flex-col gap-1.5">
               <div className="flex justify-between">
                 <MonoLabel>{label}</MonoLabel>
@@ -359,7 +371,12 @@ function Comparison({
                   {value}%
                 </MonoLabel>
               </div>
-              <Progress value={value} />
+              <Progress
+                value={value}
+                className={cn(
+                  learned && "[&_[data-slot=progress-indicator]]:bg-learn",
+                )}
+              />
             </div>
           ))}
         </div>
@@ -425,7 +442,8 @@ function AdapterEvidence({
               </Link>
             )}
             <p className="text-sm text-muted-foreground">
-              Both models get the policy and precedent P2, a finance override:
+              Both models get the policy and precedent{" "}
+              <PrecedentId id={e.pair.adapter.clause} />, a finance override:
               contractors count as team. The open model, trained only on
               human-verified answers, applies the ruling the way finance does.
             </p>
@@ -433,14 +451,24 @@ function AdapterEvidence({
           <CorrectionTrace claims={claims} precedents={precedents} />
         </Cell>
         <PairCell index={0} title="Provider" reply={e.pair.provider} />
-        <PairCell index={1} title="Your adapter" reply={e.pair.adapter} />
+        <PairCell
+          index={1}
+          title="Your adapter"
+          reply={e.pair.adapter}
+          className="bg-learn-soft"
+        />
       </CellGrid>
 
       <CellGrid className="sm:grid-cols-2 lg:grid-cols-4">
         <StatCell
           index={0}
           label="trained on corrections"
-          value={`${pct(e.exam.base)} → ${pct(e.exam.adapter)}`}
+          value={
+            <BeforeAfter
+              before={pct(e.exam.base)}
+              after={pct(e.exam.adapter)}
+            />
+          }
           hint={`Held-out exam, ${e.exam.cases} checks: the base model untrained vs ${e.version}`}
         />
         <StatCell
@@ -501,13 +529,15 @@ function PairCell({
   title,
   reply,
   index,
+  className,
 }: {
   title: string;
   reply: PairReply;
   index: number;
+  className?: string;
 }) {
   return (
-    <Cell>
+    <Cell className={className}>
       <div className="rise flex flex-col gap-4" style={rise(index)}>
         <div className="flex items-baseline justify-between gap-3">
           <span className="font-medium">{title}</span>
@@ -515,7 +545,11 @@ function PairCell({
         </div>
         <div className="flex items-center gap-2">
           <VerdictBadge verdict={reply.verdict} />
-          <span className="font-mono text-sm">{reply.clause}</span>
+          {/^P\d/.test(reply.clause) ? (
+            <PrecedentId id={reply.clause} className="text-sm" />
+          ) : (
+            <span className="font-mono text-sm">{reply.clause}</span>
+          )}
         </div>
         <p className="text-sm">&ldquo;{reply.reason}&rdquo;</p>
         <div className="flex gap-8">

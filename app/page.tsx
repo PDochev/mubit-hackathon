@@ -6,6 +6,7 @@ import { approveClaim, overrideClaim } from "@/app/actions";
 import {
   MonoLabel,
   PageHeader,
+  PrecedentId,
   VERDICT_LABEL,
   VerdictBadge,
 } from "@/components/app-ui";
@@ -228,7 +229,7 @@ async function Inbox({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
                       {!selected && (
                         <TableCell className="font-mono text-xs">
                           {c.commit?.status === "verified" ? (
-                            <span className="text-approve">● example sent</span>
+                            <span className="text-learn">● example sent</span>
                           ) : c.commit ? (
                             <span className="text-destructive">
                               ● unverified
@@ -330,8 +331,15 @@ function ClaimPanel({
           )}
           <MonoLabel>
             precedents:{" "}
-            {used.length ? used.map((p) => p.id).join(", ") : "none"} · policy v
-            {first.policyVersion}
+            {used.length
+              ? used.map((p, i) => (
+                  <span key={p.id}>
+                    {i > 0 && ", "}
+                    <PrecedentId id={p.id} />
+                  </span>
+                ))
+              : "none"}{" "}
+            · policy v{first.policyVersion}
           </MonoLabel>
           {claim.previousPass && (
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -363,7 +371,11 @@ function ClaimPanel({
           {claim.final.reason && (
             <p className="text-sm">{claim.final.reason}</p>
           )}
-          {created && <MonoLabel>saved as precedent {created.id}</MonoLabel>}
+          {created && (
+            <MonoLabel>
+              saved as precedent <PrecedentId id={created.id} />
+            </MonoLabel>
+          )}
           {claim.commit && (
             <Alert
               variant={

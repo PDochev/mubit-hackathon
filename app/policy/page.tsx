@@ -15,6 +15,7 @@ import {
   IconTile,
   MonoLabel,
   PageHeader,
+  PrecedentId,
   SectionHeader,
   VERDICT_LABEL,
   VerdictBadge,
@@ -189,7 +190,7 @@ function PrecedentRow({
         )}
       >
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-sm">{p.id}</span>
+          <PrecedentId id={p.id} className="text-sm" />
           <VerdictBadge verdict={p.verdict} />
           {p.retiredAt && <Badge variant="outline">Retired</Badge>}
           <MonoLabel className="ml-auto">

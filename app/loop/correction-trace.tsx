@@ -1,7 +1,7 @@
 import { Route } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { MonoLabel, VerdictBadge } from "@/components/app-ui";
+import { MonoLabel, PrecedentId, VerdictBadge } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -61,8 +61,8 @@ export function CorrectionTrace({
         <Tabs defaultValue={first.id}>
           <TabsList>
             {precedents.map((p) => (
-              <TabsTrigger key={p.id} value={p.id} className="font-mono">
-                {p.id}
+              <TabsTrigger key={p.id} value={p.id}>
+                <PrecedentId id={p.id} />
                 {p.createdAt > e.trainingStartedAt && (
                   <span className="text-xs text-muted-foreground">
                     after {e.version}
@@ -195,7 +195,7 @@ function traceSteps(p: Precedent, claims: ClaimRecord[]): Step[] {
               </Link>
               {pairClaim.createdAt > e.trainingStartedAt &&
                 ", a claim created after training"}
-              , {e.version} cites <Strong>{p.id}</Strong> itself:{" "}
+              , {e.version} cites <PrecedentId id={p.id} /> itself:{" "}
               {e.pair.adapter.verdict} in{" "}
               <Strong>{e.pair.adapter.latencyMs} ms</Strong> (the provider took{" "}
               {(e.pair.provider.latencyMs / 1000).toFixed(2)} s).
@@ -239,14 +239,14 @@ function TraceStep({
           aria-hidden
           className={cn(
             "absolute top-7 bottom-0 left-3.5 w-px -translate-x-1/2",
-            step.state === "done" ? "bg-foreground/25" : "bg-line",
+            step.state === "done" ? "bg-learn/40" : "bg-line",
           )}
         />
       )}
       <span
         className={cn(
           "relative grid size-7 shrink-0 place-items-center rounded-full font-mono text-xs",
-          step.state === "done" && "bg-primary text-primary-foreground",
+          step.state === "done" && "bg-learn text-white",
           step.state === "pending" &&
             "border border-dashed border-muted-foreground/50 bg-background text-muted-foreground",
           step.state === "skipped" &&

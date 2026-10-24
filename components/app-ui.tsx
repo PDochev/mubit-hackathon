@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Verdict } from "@/lib/prompt";
 import { cn } from "@/lib/utils";
 
-// Verdict colours are the only colour in the UI (see globals.css).
+// Verdict colours and the cobalt "learn" accent are the only colour in the UI (see globals.css).
 const VERDICT_STYLE: Record<Verdict, string> = {
   approve: "bg-approve-soft text-approve",
   violation: "bg-violation-soft text-violation",
@@ -19,6 +19,20 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
 
 export function VerdictBadge({ verdict, className }: { verdict: Verdict; className?: string }) {
   return <Badge className={cn(VERDICT_STYLE[verdict], className)}>{VERDICT_LABEL[verdict]}</Badge>;
+}
+
+// A precedent's ID, in the accent colour wherever it appears.
+export function PrecedentId({ id, className }: { id: string; className?: string }) {
+  return <span className={cn("font-mono font-medium text-learn", className)}>{id}</span>;
+}
+
+// A before → after figure: the old value grey, the learned value in the accent.
+export function BeforeAfter({ before, after }: { before: ReactNode; after: ReactNode }) {
+  return (
+    <>
+      <span className="text-muted-foreground">{before}</span> → <span className="text-learn">{after}</span>
+    </>
+  );
 }
 
 // Stagger helper for the `rise` entrance animation.
