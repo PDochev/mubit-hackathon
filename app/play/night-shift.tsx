@@ -88,6 +88,19 @@ const MOOD: Record<Phase, { face: string; motion: string }> = {
 const nextUp = (shift: ShiftView) =>
   ENCOUNTERS.find((e) => !shift.settled.includes(e.id));
 
+// How far dawn has come up in the window: a faint glow by round 2, full
+// light once the auditor arrives at 09:00.
+function dawn(phase: Phase, shift: ShiftView | null): number {
+  if (
+    phase === "audit-intro" ||
+    phase === "auditing" ||
+    phase === "audit" ||
+    phase === "results"
+  )
+    return 1;
+  return ((shift?.settled.length ?? 0) / ENCOUNTERS.length) * 0.45;
+}
+
 export function NightShift({
   pixelFont,
   typeFont,
@@ -274,6 +287,10 @@ export function NightShift({
           alt=""
           className="absolute inset-0 size-full"
         />
+        <div
+          className="ns-dawn absolute top-[22%] left-[24.5%] h-[42%] w-[50%]"
+          style={{ opacity: dawn(phase, shift) }}
+        />
         <div className="ns-rain absolute top-[22%] left-[24.5%] h-[42%] w-[50%] opacity-60" />
         <div className="ns-glow ns-flicker absolute top-[36%] left-[68%] h-[40%] w-[26%]" />
 
@@ -282,6 +299,7 @@ export function NightShift({
           review={review}
           stamp={stamp}
           error={error}
+          rulings={shift?.precedents ?? []}
           typeFont={typeFont}
         />
 
@@ -470,15 +488,19 @@ function Apprentice({
   review,
   stamp,
   error,
+  rulings,
   typeFont,
 }: {
   phase: Phase;
   review: Review | null;
   stamp: Verdict | null;
   error: string | null;
+  rulings: ShiftView["precedents"];
   typeFont: string;
 }) {
-  const mood = MOOD[phase];
+  // Answering from one of your rulings is the moment to celebrate.
+  const remembered = phase === "ready" && !!review?.precedentIds.length;
+  const mood = remembered ? { face: "happy", motion: "ns-hop" } : MOOD[phase];
   return (
     <div className="absolute bottom-[30%] left-[58%] flex flex-col items-center">
       <div className="ns-px relative mb-[0.6cqw] min-h-[4.5cqw] w-[24cqw] bg-white px-[1.2cqw] py-[0.8cqw] text-center text-[1.5cqw] leading-tight text-[var(--ns-ink)]">
@@ -487,6 +509,7 @@ function Apprentice({
           review={review}
           stamp={stamp}
           error={error}
+          rulings={rulings}
           typeFont={typeFont}
         />
       </div>
@@ -508,12 +531,14 @@ function Speech({
   review,
   stamp,
   error,
+  rulings,
   typeFont,
 }: {
   phase: Phase;
   review: Review | null;
   stamp: Verdict | null;
   error: string | null;
+  rulings: ShiftView["precedents"];
   typeFont: string;
 }) {
   const thinking = (label: string) => (
@@ -581,39 +606,59 @@ function Speech({
       if (!review?.verdict) return null;
       const wants =
         review.verdict === "needs_info" ? review.missing.join(" ") : "";
+      const recalled = review.precedentIds.length > 0;
+      const used = rulings.find((r) => review.precedentIds.includes(r.id));
       return (
         <div className="ns-pop flex flex-col gap-[0.4cqw]">
-          {review.precedentIds.length > 0 && (
-            <p className="text-[1.2cqw] text-[var(--ns-learn)]">
-              USING {review.precedentIds.join(", ")}
-            </p>
-          )}
-          <p>
-            {verdictLine(review.verdict)}
-            {review.clause ? ` · ${review.clause}` : ""}
-          </p>
-          {review.reason && (
-            <p
-              className={cn(
-                "text-left text-[1.5cqw] leading-[1.05] text-[#4a4f7a]",
-                wants ? "line-clamp-2" : "line-clamp-3",
-                typeFont,
+          {recalled && (
+            // The ruling you taught, recalled: it lands first, then the call.
+            <div className="ns-recall ns-px -mx-[0.4cqw] mb-[0.2cqw] flex flex-col gap-[0.3cqw] bg-[var(--ns-learn)] px-[0.8cqw] py-[0.6cqw] text-white [--px-color:#2a5bd0]">
+              <span className="text-[1.6cqw]">
+                ★ USING YOUR RULING {review.precedentIds.join(", ")}
+              </span>
+              {used && (
+                <span
+                  className={cn(
+                    "line-clamp-2 text-left text-[1.35cqw] leading-[1.05] text-[#e6edff]",
+                    typeFont,
+                  )}
+                >
+                  “{used.reason}”
+                </span>
               )}
-            >
-              {review.reason}
-            </p>
+            </div>
           )}
-          {wants && (
-            <p
-              className={cn(
-                "line-clamp-3 text-left text-[1.5cqw] leading-[1.05] text-[#9a6a12]",
-                typeFont,
-              )}
-            >
-              <span className="text-[#8a5a00]">WANTS: </span>
-              {wants}
+          <div
+            className={cn("flex flex-col gap-[0.4cqw]", recalled && "ns-pop")}
+            style={recalled ? { animationDelay: "0.5s" } : undefined}
+          >
+            <p>
+              {verdictLine(review.verdict)}
+              {review.clause ? ` · ${review.clause}` : ""}
             </p>
-          )}
+            {review.reason && (
+              <p
+                className={cn(
+                  "text-left text-[1.5cqw] leading-[1.05] text-[#4a4f7a]",
+                  wants || recalled ? "line-clamp-2" : "line-clamp-3",
+                  typeFont,
+                )}
+              >
+                {review.reason}
+              </p>
+            )}
+            {wants && (
+              <p
+                className={cn(
+                  "line-clamp-3 text-left text-[1.5cqw] leading-[1.05] text-[#9a6a12]",
+                  typeFont,
+                )}
+              >
+                <span className="text-[#8a5a00]">WANTS: </span>
+                {wants}
+              </p>
+            )}
+          </div>
         </div>
       );
     }
@@ -993,13 +1038,24 @@ function AuditBoard({
           {n} CLAIMS IT HAD NEVER SEEN
         </span>
       </div>
-      <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-[1.6cqw] gap-y-[1cqw] text-[1.15cqw] text-[#7f88c9]">
-        <span>CLAIM</span>
+      <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-[1.6cqw] gap-y-[0.6cqw] text-[1.15cqw] text-[#7f88c9]">
+        <span className="px-[0.8cqw]">CLAIM</span>
         <span>CORRECT</span>
         <span>AT 23:00</span>
-        <span>WITH YOUR RULINGS</span>
+        <span className="pr-[0.8cqw]">WITH YOUR RULINGS</span>
         {audit.results.map((r, i) => (
-          <div key={r.id} className="contents">
+          // A claim your rulings fixed (wrong at 23:00, right now) lights up
+          // as its last stamp lands.
+          <div
+            key={r.id}
+            className={cn(
+              "col-span-full grid grid-cols-subgrid items-center px-[0.8cqw] py-[0.4cqw]",
+              r.untrained.verdict !== r.expected &&
+                r.trained.verdict === r.expected &&
+                "ns-fixed ns-px bg-[rgb(79_141_255/0.14)] [--px-color:var(--ns-learn)]",
+            )}
+            style={{ animationDelay: `${i * STEP + 0.45}s` }}
+          >
             <span
               className={cn(
                 "ns-pop text-[1.6cqw] leading-[1.05] text-[#e8ecff]",
@@ -1030,22 +1086,24 @@ function AuditBoard({
           </div>
         ))}
       </div>
-      <div className="mt-auto flex items-center justify-between gap-[2cqw]">
-        <span
-          className="ns-pop text-[2.2cqw]"
+      <div className="mt-auto flex items-end justify-between gap-[2cqw]">
+        <div
+          className="ns-pop flex flex-col gap-[0.4cqw]"
           style={{ animationDelay: `${end}s` }}
         >
-          <span className="text-[#9aa3e0]">
-            {audit.untrainedRight}/{n}
+          <span className="text-[1.2cqw] text-[#7f88c9]">
+            SCORE · AT 23:00 → WITH YOUR RULINGS
           </span>
-          <span className="text-[#7f88c9]"> → </span>
-          <span className="text-[var(--ns-learn)]">
-            {audit.trainedRight}/{n}
+          <span className="text-[4.2cqw] leading-none">
+            <span className="text-[#9aa3e0]">
+              {audit.untrainedRight}/{n}
+            </span>
+            <span className="text-[#7f88c9]"> → </span>
+            <span className="text-[var(--ns-learn)]">
+              {audit.trainedRight}/{n}
+            </span>
           </span>
-          <span className="ml-[1cqw] text-[1.2cqw] text-[#7f88c9]">
-            AFTER ONE NIGHT OF RULINGS
-          </span>
-        </span>
+        </div>
         <PixelButton onClick={onNext}>SHIFT REPORT ▶</PixelButton>
       </div>
     </Board>

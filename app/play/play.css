@@ -182,8 +182,48 @@
   }
 }
 
+/* backwards, not both: see .ns-stamp-mark. */
 .ns-pop {
-  animation: ns-pop 0.4s steps(4) both;
+  animation: ns-pop 0.4s steps(4) backwards;
+}
+
+/* Round 2: the ruling it recalled flashes as it lands. */
+.ns-recall {
+  animation:
+    ns-pop 0.4s steps(4) backwards,
+    ns-recall 0.3s steps(1) 0.4s 3;
+}
+
+@keyframes ns-recall {
+  50% {
+    background-color: #8fb6ff;
+  }
+}
+
+/* Audit: a claim your rulings fixed lights up once its last stamp lands. */
+.ns-fixed {
+  animation: ns-fixed 0.3s steps(3) backwards;
+}
+
+@keyframes ns-fixed {
+  from {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+/* Dawn over the city, in hard bands; its opacity rises through the night. */
+.ns-dawn {
+  background: linear-gradient(
+    #2a1f5c 0 30%,
+    #5a2f6e 30% 48%,
+    #a8456a 48% 62%,
+    #e8774f 62% 76%,
+    #ffb45c 76%
+  );
+  mix-blend-mode: screen;
+  pointer-events: none;
+  transition: opacity 2.4s steps(6);
 }
 
 @keyframes ns-pop {
@@ -236,7 +276,12 @@
   .ns-stamp-mark,
   .ns-shake,
   .ns-pop,
+  .ns-recall,
+  .ns-fixed,
   .ns-twinkle {
     animation: none;
+  }
+  .ns-dawn {
+    transition: none;
   }
 }
