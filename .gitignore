@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# app data (claims, precedents)
+/data
+
+# browser screenshots from design checks
+/.playwright-mcp
