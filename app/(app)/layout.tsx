@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { Nav } from "@/components/nav";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // The reviewer app's chrome. /play sits outside this group and runs full screen.
 export default function AppLayout({ children }: LayoutProps<"/">) {
@@ -31,9 +32,12 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
               Every ruling becomes a model update.
             </span>
           </div>
-          <span className="font-mono text-xs text-muted-foreground">
-            routed through Mubit
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-xs text-muted-foreground">
+              routed through Mubit
+            </span>
+            <ThemeToggle />
+          </div>
         </div>
       </footer>
     </>
