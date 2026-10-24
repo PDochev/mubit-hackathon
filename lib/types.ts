@@ -1,6 +1,12 @@
 import type { ModelVerdict, Verdict } from "./prompt";
 
-export type Category = "meals" | "taxi" | "rail" | "hotel" | "software" | "other";
+export type Category =
+  | "meals"
+  | "taxi"
+  | "rail"
+  | "hotel"
+  | "software"
+  | "other";
 
 export type ClaimSource = "user" | "seed" | "eval";
 
@@ -51,12 +57,17 @@ export type Commit = {
 
 export type ClaimRecord = Claim & {
   firstPass?: Decision;
+  // The first pass before the latest policy re-check, if it was re-checked.
+  previousPass?: Decision;
   final?: FinalVerdict;
   commit?: Commit;
   error?: string;
 };
 
-export type HouseRuleId = "contractor-is-team" | "late-client-taxi" | "client-coffee";
+export type HouseRuleId =
+  | "contractor-is-team"
+  | "late-client-taxi"
+  | "client-coffee";
 
 export type Precedent = {
   id: string;
@@ -66,13 +77,33 @@ export type Precedent = {
   verdict: Verdict;
   reason: string;
   tags: string[];
+  // How the written policy alone rules on this precedent's claim, as of the
+  // last policy check. Agreeing means the policy now covers the ruling.
+  policyCheck?: {
+    policyVersion: number;
+    verdict: Verdict;
+    reason: string;
+    at: string;
+  };
+  // Retired precedents stay on record but are no longer sent to the model.
+  retiredAt?: string;
 };
 
 export type Policy = { text: string; version: number; updatedAt: string };
 
+export type Recheck = {
+  policyVersion: number;
+  at: string;
+  claims: { id: string; before: Verdict; after: Verdict | null }[];
+  precedents: { id: string; verdict: Verdict; policyVerdict: Verdict | null }[];
+};
+
 export type EvalScore = { n: number; accuracy: number; latencyMs: number };
 
-export type EvalComparison = { withPrecedents: EvalScore; withoutPrecedents: EvalScore };
+export type EvalComparison = {
+  withPrecedents: EvalScore;
+  withoutPrecedents: EvalScore;
+};
 
 export type EvalMiss = {
   claim: string;
@@ -100,5 +131,9 @@ export type Store = {
   claims: ClaimRecord[];
   precedents: Precedent[];
   policy: Policy;
+  // Earlier policy versions, oldest first.
+  policyHistory?: Policy[];
+  // What the latest policy version changed for open claims and precedents.
+  recheck?: Recheck;
   evals: EvalRun[];
 };

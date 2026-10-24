@@ -8,9 +8,15 @@ import { verdictFor } from "./verdict";
 
 // `ruling` is the reviewer's ruling on this very claim; it always goes in,
 // whether or not tag matching would have found it.
-async function ask(claim: Claim, record: RecordMode, ruling?: Precedent): Promise<Decision> {
+async function ask(
+  claim: Claim,
+  record: RecordMode,
+  ruling?: Precedent,
+): Promise<Decision> {
   const store = await readStore();
-  const matched = relevantPrecedents(claim, store.precedents).filter((p) => p.id !== ruling?.id);
+  const matched = relevantPrecedents(claim, store.precedents).filter(
+    (p) => p.id !== ruling?.id,
+  );
   const precedents = ruling ? [ruling, ...matched].slice(0, 5) : matched;
   return verdictFor(claim, store.policy, precedents, record);
 }
@@ -30,7 +36,9 @@ async function getClaim(id: string): Promise<ClaimRecord> {
   return claim;
 }
 
-export function createClaim(draft: Omit<Claim, "id" | "createdAt">): Promise<ClaimRecord> {
+export function createClaim(
+  draft: Omit<Claim, "id" | "createdAt">,
+): Promise<ClaimRecord> {
   return updateStore((store) => {
     const claim: ClaimRecord = {
       ...draft,
@@ -56,7 +64,11 @@ export async function decide(id: string): Promise<ClaimRecord> {
 // After a human has settled the verdict, re-ask with full recording. Precedents
 // now include the reviewer's ruling, so the recorded reply should carry the
 // corrected answer. Only a matching reply counts as a verified example.
-async function commit(id: string, verdict: Verdict, ruling?: Precedent): Promise<ClaimRecord> {
+async function commit(
+  id: string,
+  verdict: Verdict,
+  ruling?: Precedent,
+): Promise<ClaimRecord> {
   const claim = await getClaim(id);
   let last: Decision | null = null;
   let attempts = 0;
@@ -82,9 +94,14 @@ async function commit(id: string, verdict: Verdict, ruling?: Precedent): Promise
 
 export async function approve(id: string): Promise<ClaimRecord> {
   const claim = await getClaim(id);
-  if (!claim.firstPass) throw new Error(`Claim ${id} has no verdict to approve`);
+  if (!claim.firstPass)
+    throw new Error(`Claim ${id} has no verdict to approve`);
   await setClaim(id, {
-    final: { verdict: claim.firstPass.verdict, by: "reviewer", at: new Date().toISOString() },
+    final: {
+      verdict: claim.firstPass.verdict,
+      by: "reviewer",
+      at: new Date().toISOString(),
+    },
   });
   return commit(id, claim.firstPass.verdict);
 }
@@ -99,15 +116,28 @@ export async function override(
 ): Promise<ClaimRecord> {
   const claim = await getClaim(id);
   const tags = tagClaim(claim);
-  const draft = { createdAt: new Date().toISOString(), claimId: id, summary: summariseClaim(claim), verdict, reason, tags };
+  const draft = {
+    createdAt: new Date().toISOString(),
+    claimId: id,
+    summary: summariseClaim(claim),
+    verdict,
+    reason,
+    tags,
+  };
   if (!save) {
-    await setClaim(id, { final: { verdict, by: "reviewer", reason, at: draft.createdAt } });
+    await setClaim(id, {
+      final: { verdict, by: "reviewer", reason, at: draft.createdAt },
+    });
     return commit(id, verdict, { id: `R-${id}`, ...draft });
   }
   const precedent = await updateStore((store) => {
     // The same ruling on the same kind of claim is one precedent, not many.
     const same = store.precedents.find(
-      (p) => p.verdict === verdict && p.reason === reason && p.tags.join() === tags.join(),
+      (p) =>
+        !p.retiredAt &&
+        p.verdict === verdict &&
+        p.reason === reason &&
+        p.tags.join() === tags.join(),
     );
     if (same) return same;
     const p: Precedent = { id: nextId("P", store.precedents), ...draft };
@@ -115,7 +145,13 @@ export async function override(
     return p;
   });
   await setClaim(id, {
-    final: { verdict, by: "reviewer", reason, precedentId: precedent.id, at: new Date().toISOString() },
+    final: {
+      verdict,
+      by: "reviewer",
+      reason,
+      precedentId: precedent.id,
+      at: new Date().toISOString(),
+    },
   });
   return commit(id, verdict, precedent);
 }
