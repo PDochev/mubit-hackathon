@@ -2,7 +2,12 @@ import { ArrowRight, Inbox as InboxIcon } from "lucide-react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { approveClaim, overrideClaim } from "@/app/actions";
+import {
+  approveClaim,
+  overrideClaim,
+  recordAgain,
+  retryClaim,
+} from "@/app/actions";
 import {
   MonoLabel,
   PageHeader,
@@ -347,12 +352,21 @@ function ClaimPanel({
         </PanelSection>
       )}
 
-      {claim.error && (
-        <PanelSection title="Error">
+      {claim.error && !claim.final && (
+        <PanelSection title="Model verdict">
           <Alert variant="destructive">
-            <AlertTitle>Model call failed</AlertTitle>
+            <AlertTitle>Couldn&apos;t check this claim</AlertTitle>
             <AlertDescription>{claim.error}</AlertDescription>
           </Alert>
+          <form action={retryClaim.bind(null, claim.id)}>
+            <SubmitButton
+              pending="Checking…"
+              variant="outline"
+              className="w-full"
+            >
+              Try again
+            </SubmitButton>
+          </form>
         </PanelSection>
       )}
 
@@ -381,12 +395,27 @@ function ClaimPanel({
               <AlertTitle>
                 {claim.commit.status === "verified"
                   ? "Corrected training example sent to Mubit"
-                  : "Re-run disagreed with the decision; not a clean example"}
+                  : claim.commit.error
+                    ? "Couldn't record the training example"
+                    : "Re-run disagreed with the decision; not a clean example"}
               </AlertTitle>
-              <AlertDescription className="font-mono text-xs">
-                {claim.commit.mubitRequestId}
+              <AlertDescription
+                className={cn(!claim.commit.error && "font-mono text-xs")}
+              >
+                {claim.commit.error ?? claim.commit.mubitRequestId}
               </AlertDescription>
             </Alert>
+          )}
+          {claim.commit?.status === "unverified" && (
+            <form action={recordAgain.bind(null, claim.id)}>
+              <SubmitButton
+                pending="Recording…"
+                variant="outline"
+                className="w-full"
+              >
+                Record again
+              </SubmitButton>
+            </form>
           )}
         </PanelSection>
       )}

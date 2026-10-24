@@ -2,12 +2,12 @@
 
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
-import { approve, createClaim, decide, override } from "@/lib/decide";
+import { approve, createClaim, decide, override, recommit } from "@/lib/decide";
 import { runEval } from "@/lib/eval";
 import { recheckPolicy, savePolicy, setRetired } from "@/lib/refresh";
 import { VERDICTS, type Verdict } from "@/lib/prompt";
 import { assertReviewer } from "@/lib/reviewer";
-import { updateStore } from "@/lib/store";
+import { readStore, updateStore } from "@/lib/store";
 import type { Category } from "@/lib/types";
 
 const CATEGORIES: Category[] = [
@@ -45,9 +45,22 @@ export async function submitClaim(form: FormData) {
     receiptText: text(form, "receiptText") || undefined,
     approvalRef: text(form, "approvalRef") || undefined,
   });
+  await check(claim.id);
+  redirect(`/submit/${claim.id}`);
+}
 
-  const decided = await decide(claim.id);
-  const first = decided.firstPass;
+// Anyone can retry a claim the model couldn't check: it's the same call a
+// submission makes, and a decided claim is never re-asked.
+export async function retryClaim(id: string) {
+  const claim = (await readStore()).claims.find((c) => c.id === id);
+  if (!claim?.error || claim.final) return;
+  await check(id);
+  refresh();
+}
+
+async function check(id: string) {
+  const claim = await decide(id);
+  const first = claim.firstPass;
   // Confident approvals of small, receipted claims go straight through. The
   // model's say-so alone is never enough (claim text could try to talk it
   // into approving), so the amount and receipt checks are deterministic.
@@ -70,12 +83,17 @@ export async function submitClaim(form: FormData) {
         };
     });
   }
-  redirect(`/submit/${claim.id}`);
 }
 
 export async function approveClaim(id: string) {
   await assertReviewer();
   await approve(id);
+  refresh();
+}
+
+export async function recordAgain(id: string) {
+  await assertReviewer();
+  await recommit(id);
   refresh();
 }
 

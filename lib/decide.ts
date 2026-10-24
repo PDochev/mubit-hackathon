@@ -1,5 +1,5 @@
 import "server-only";
-import type { RecordMode } from "./mubit";
+import { describeError, type RecordMode } from "./mubit";
 import { relevantPrecedents, summariseClaim, tagClaim } from "./precedents";
 import type { Verdict } from "./prompt";
 import { nextId, readStore, updateStore } from "./store";
@@ -57,7 +57,8 @@ export async function decide(id: string): Promise<ClaimRecord> {
     const firstPass = await ask(await getClaim(id), "metadata");
     return setClaim(id, { firstPass, error: undefined });
   } catch (err) {
-    return setClaim(id, { error: String(err) });
+    console.error(`[decide ${id}]`, err);
+    return setClaim(id, { error: describeError(err) });
   }
 }
 
@@ -71,14 +72,18 @@ async function commit(
 ): Promise<ClaimRecord> {
   const claim = await getClaim(id);
   let last: Decision | null = null;
+  let error: string | undefined;
   let attempts = 0;
   while (attempts < 2) {
     attempts++;
     try {
       last = await ask(claim, "full", ruling);
+      error = undefined;
       if (last.verdict === verdict) break;
-    } catch {
+    } catch (err) {
+      console.error(`[commit ${id}]`, err);
       last = null;
+      error = describeError(err);
     }
   }
   return setClaim(id, {
@@ -87,9 +92,21 @@ async function commit(
       verdict: last?.verdict ?? null,
       mubitRequestId: last?.mubitRequestId ?? null,
       attempts,
+      error,
       at: new Date().toISOString(),
     },
   });
+}
+
+// Records the training example again for a claim finance has already decided,
+// e.g. after Mubit was unreachable the first time.
+export async function recommit(id: string): Promise<ClaimRecord> {
+  const claim = await getClaim(id);
+  if (!claim.final) throw new Error(`Claim ${id} has no final verdict`);
+  const ruling = (await readStore()).precedents.find(
+    (p) => p.id === claim.final!.precedentId,
+  );
+  return commit(id, claim.final.verdict, ruling);
 }
 
 export async function approve(id: string): Promise<ClaimRecord> {

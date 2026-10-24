@@ -3,6 +3,11 @@ import { chat, type RecordMode } from "./mubit";
 import { buildUserMessage, parseVerdict, SYSTEM_PROMPT } from "./prompt";
 import type { Claim, Decision, Policy, Precedent } from "./types";
 
+// Caps model calls in flight across the whole app (submissions, re-checks,
+// evals, seeding), so a burst queues instead of tripping Mubit's rate limit.
+const MAX_IN_FLIGHT = 6;
+const gate = limit(MAX_IN_FLIGHT);
+
 // One model call: the frozen system prompt plus policy, precedents and claim.
 export async function verdictFor(
   claim: Claim,
@@ -11,7 +16,7 @@ export async function verdictFor(
   record: RecordMode,
 ): Promise<Decision> {
   const user = buildUserMessage(policy.text, precedents, claim);
-  const result = await chat(SYSTEM_PROMPT, user, record);
+  const result = await gate(() => chat(SYSTEM_PROMPT, user, record));
   return {
     ...parseVerdict(result.content),
     mubitRequestId: result.mubitRequestId,
@@ -27,7 +32,8 @@ export function limit(concurrency: number) {
   const waiting: (() => void)[] = [];
   return async <T>(task: () => Promise<T>): Promise<T> => {
     // A finishing task hands its slot straight to the next waiter.
-    if (active >= concurrency) await new Promise<void>((resolve) => waiting.push(resolve));
+    if (active >= concurrency)
+      await new Promise<void>((resolve) => waiting.push(resolve));
     else active++;
     try {
       return await task();

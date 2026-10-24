@@ -52,6 +52,8 @@ export type Commit = {
   verdict: Verdict | null;
   mubitRequestId: string | null;
   attempts: number;
+  // Set when the last attempt failed to reach the model at all.
+  error?: string;
   at: string;
 };
 

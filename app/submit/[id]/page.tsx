@@ -3,7 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { retryClaim } from "@/app/actions";
 import { HatchBand, IconTile, MonoLabel } from "@/components/app-ui";
+import { SubmitButton } from "@/components/submit-button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,7 +29,9 @@ async function Result({ params }: Pick<PageProps<"/submit/[id]">, "params">) {
   const first = claim.firstPass;
 
   const outcome =
-    claim.final?.by === "auto"
+    claim.error && !first
+      ? { title: "Saved, not checked yet.", icon: CircleAlert, tone: "text-foreground", body: "Your claim is saved, but the policy check didn't run. Try again, or finance will check it by hand." }
+      : claim.final?.by === "auto"
       ? { title: "Approved.", icon: CircleCheck, tone: "text-approve", body: "Your claim meets the policy and has been approved." }
       : first?.verdict === "violation"
         ? { title: "Policy issue flagged.", icon: CircleAlert, tone: "text-violation", body: "Finance will review this claim before it's paid." }
@@ -54,14 +58,22 @@ async function Result({ params }: Pick<PageProps<"/submit/[id]">, "params">) {
               </AlertDescription>
             </Alert>
           )}
-          {claim.error && (
+          {claim.error && !first && (
             <Alert variant="destructive" className="text-left">
               <AlertTitle>Couldn&apos;t check this claim</AlertTitle>
               <AlertDescription>{claim.error}</AlertDescription>
             </Alert>
           )}
-          <div className="flex gap-3">
-            <Link href="/submit" className={buttonVariants()}>
+          <div className="flex flex-wrap justify-center gap-3">
+            {claim.error && !first && !claim.final && (
+              <form action={retryClaim.bind(null, claim.id)}>
+                <SubmitButton pending="Checking…">Try again</SubmitButton>
+              </form>
+            )}
+            <Link
+              href="/submit"
+              className={buttonVariants({ variant: claim.error && !first ? "outline" : "default" })}
+            >
               Submit another
             </Link>
             <Link href={`/?filter=all&claim=${claim.id}`} className={buttonVariants({ variant: "outline" })}>
