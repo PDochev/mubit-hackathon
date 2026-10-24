@@ -1,6 +1,6 @@
 import { assertReviewer } from "@/lib/reviewer";
 import { approve, createClaim, decide, override } from "@/lib/decide";
-import { generateClaim, HOUSE_RULES } from "@/lib/generate";
+import { generateClaim, HOUSE_RULES, SEED_SETS } from "@/lib/generate";
 import { readStore } from "@/lib/store";
 import { limit } from "@/lib/verdict";
 
@@ -9,15 +9,18 @@ import { limit } from "@/lib/verdict";
 // claim ends in one fully recorded call, i.e. one Mubit training example.
 export async function POST(request: Request) {
   await assertReviewer();
-  const body = (await request.json().catch(() => ({}))) as { n?: number; concurrency?: number };
+  const body = (await request.json().catch(() => ({}))) as { n?: number; concurrency?: number; set?: number };
+  const set = body.set ?? 3;
+  if (!SEED_SETS.includes(set)) return Response.json({ error: `set must be one of ${SEED_SETS.join(", ")}` }, { status: 400 });
   const n = Math.min(body.n ?? 10, 100);
   const run = limit(body.concurrency ?? 3);
-  const offset = (await readStore()).claims.filter((c) => c.source === "seed").length;
+  // Claims seeded before sets existed came from set 1.
+  const offset = (await readStore()).claims.filter((c) => c.source === "seed" && (c.set ?? 1) === set).length;
 
   const results = await Promise.all(
     Array.from({ length: n }, (_, i) =>
       run(async () => {
-        const claim = await createClaim({ ...generateClaim(1, offset + i), source: "seed" });
+        const claim = await createClaim({ ...generateClaim(set, offset + i), set, source: "seed" });
         const decided = await decide(claim.id);
         const expected = claim.expected!;
         if (!decided.firstPass) return { id: claim.id, outcome: "error", error: decided.error };
@@ -49,6 +52,7 @@ export async function POST(request: Request) {
   const count = (key: string, value: unknown) =>
     results.filter((r) => (r as Record<string, unknown>)[key] === value).length;
   return Response.json({
+    set,
     n,
     offset,
     approved: count("outcome", "approved"),

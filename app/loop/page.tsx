@@ -101,8 +101,10 @@ async function Loop() {
           <Comparison index={1} result={run.houseRule} title="House-rule cases" />
           <Cell className="py-4 md:col-span-2">
             <FigCaption n={1}>
-              Verdict accuracy on {run.n} claims the model has never seen, with the written policy alone and with the
-              finance team&apos;s precedents. House-rule cases are the ones only a correction can fix.
+              Verdict accuracy on {run.n} claims the model has never seen
+              {run.set === 4 ? ", written with people, merchants and wording that never appear in training" : ""}, with the
+              written policy alone and with the finance team&apos;s precedents. House-rule cases are the ones only a
+              correction can fix.
             </FigCaption>
           </Cell>
         </CellGrid>

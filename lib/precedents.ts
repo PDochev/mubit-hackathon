@@ -1,9 +1,9 @@
 import type { Claim, Precedent } from "./types";
 
 const KEYWORDS: [RegExp, string][] = [
-  [/contractor|freelanc/i, "contractor"],
+  [/contractor|freelanc|interim|agency/i, "contractor"],
   [/client|customer|prospect/i, "client"],
-  [/coffee|caf[eé]|pret|starbucks|costa/i, "coffee"],
+  [/coffee|caf[eé]|pret|starbucks|costa|flat white|espresso|latte|cappuccino/i, "coffee"],
   [/alcohol|wine|beer|peroni|prosecco|cocktail/i, "alcohol"],
   [/airport|heathrow|gatwick|luggage/i, "airport"],
   [/equipment|kit|monitor/i, "equipment"],

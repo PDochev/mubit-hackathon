@@ -19,6 +19,8 @@ export type Claim = {
   receipt: boolean;
   receiptText?: string;
   approvalRef?: string;
+  // Generator set of a synthetic claim (see SETS in generate.ts).
+  set?: number;
   // Synthetic claims carry the answer the finance team would give.
   expected?: { verdict: Verdict; clause: string; houseRule?: HouseRuleId };
 };
@@ -72,14 +74,26 @@ export type EvalScore = { n: number; accuracy: number; latencyMs: number };
 
 export type EvalComparison = { withPrecedents: EvalScore; withoutPrecedents: EvalScore };
 
+export type EvalMiss = {
+  claim: string;
+  expected: Verdict;
+  withPrecedents: Verdict | null;
+  withoutPrecedents: Verdict | null;
+  reason?: string;
+};
+
 export type EvalRun = {
   id: string;
   at: string;
+  // Generator set: 2 = same templates as the seed, 4 = unseen wording.
+  set?: number;
   n: number;
   precedentCount: number;
   policyVersion: number;
   all: EvalComparison;
   houseRule: EvalComparison;
+  // Claims answered wrongly with precedents, i.e. what finance still has to rule on.
+  misses?: EvalMiss[];
 };
 
 export type Store = {
