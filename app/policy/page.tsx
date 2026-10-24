@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { ruling } from "@/lib/status";
 import { readStore } from "@/lib/store";
 import type { ClaimRecord, Policy, Precedent, Recheck } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -41,7 +42,7 @@ export default function Page() {
         eyebrow="Rulebook"
         title="The policy, as written."
         subtitle="And as finance rules it."
-        description="Both are sent with every claim, so a change here takes effect on the very next one. Saving a new version re-checks open claims and precedents straight away."
+        description="Both are sent with every claim, so a change here takes effect on the very next one."
       />
       <Suspense fallback={<Skeleton className="m-8 h-[600px]" />}>
         <PolicyAndPrecedents />
@@ -89,6 +90,10 @@ async function PolicyAndPrecedents() {
               })}
             </MonoLabel>
           </div>
+          <p className="text-sm text-muted-foreground">
+            Edit any section and save. Open claims are re-checked under the new
+            version straight away, and each precedent is checked against it.
+          </p>
           <form action={updatePolicy} className="flex flex-col gap-4">
             <Textarea
               key={policy.version}
@@ -116,8 +121,16 @@ async function PolicyAndPrecedents() {
 
         <div className="flex flex-col bg-background">
           <div className="flex items-baseline justify-between gap-3 border-b border-line px-4 py-6 sm:px-8">
-            <h2 className="text-lg font-semibold tracking-tight">Precedents</h2>
-            <MonoLabel>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg font-semibold tracking-tight">
+                Precedents
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Finance&apos;s rulings, numbered P1, P2… The model cites them
+                like policy sections.
+              </p>
+            </div>
+            <MonoLabel className="shrink-0">
               {active} active
               {precedents.length > active
                 ? ` · ${precedents.length - active} retired`
@@ -183,12 +196,15 @@ function PrecedentRow({
             from {p.claimId} · used {used}×
           </MonoLabel>
         </div>
-        <p className="text-sm font-medium">{p.reason}</p>
-        <p className="text-xs text-muted-foreground">{p.summary}</p>
+        <p className="text-sm font-medium">&ldquo;{ruling(p.reason)}&rdquo;</p>
+        {/* The stored summary is prompt text, so only its display is fixed. */}
+        <p className="text-sm text-muted-foreground">
+          {p.summary.replace(/\b1 people\b/, "1 person")}
+        </p>
         {check && !p.retiredAt && (
           <p
             className={cn(
-              "text-xs",
+              "text-sm",
               covered ? "font-medium text-foreground" : "text-muted-foreground",
             )}
           >
@@ -198,11 +214,6 @@ function PrecedentRow({
           </p>
         )}
         <div className="flex flex-wrap items-center gap-1">
-          {p.tags.map((t) => (
-            <Badge key={t} variant="outline" className="font-mono font-normal">
-              {t}
-            </Badge>
-          ))}
           <div className="ml-auto flex gap-1">
             {p.retiredAt ? (
               <>

@@ -126,7 +126,7 @@ async function ClaimForm({ searchParams }: Pick<PageProps<"/submit">, "searchPar
               <Input id="approvalRef" name="approvalRef" defaultValue={e.approvalRef ?? ""} placeholder="APR-1234" className="font-mono" />
             </Field>
             <Field orientation="horizontal" className="self-end pb-2">
-              <Checkbox id="receipt" name="receipt" value="yes" defaultChecked={e.receipt ?? true} />
+              <Checkbox id="receipt" name="receipt" value="yes" defaultChecked={e.receipt ?? false} />
               <FieldLabel htmlFor="receipt">Receipt attached</FieldLabel>
             </Field>
             <Field className="sm:col-span-2">

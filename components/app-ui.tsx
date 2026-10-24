@@ -21,18 +21,6 @@ export function VerdictBadge({ verdict, className }: { verdict: Verdict; classNa
   return <Badge className={cn(VERDICT_STYLE[verdict], className)}>{VERDICT_LABEL[verdict]}</Badge>;
 }
 
-// The § clause mark doubles as the logo.
-export function BrandMark({ className }: { className?: string }) {
-  return (
-    <span
-      aria-hidden
-      className={cn("grid size-7 place-items-center rounded-md bg-primary text-base font-bold text-primary-foreground", className)}
-    >
-      §
-    </span>
-  );
-}
-
 // Stagger helper for the `rise` entrance animation.
 export const rise = (i: number) => ({ "--i": i }) as CSSProperties;
 
@@ -61,16 +49,16 @@ export function PageHeader({
 }) {
   return (
     <>
-      <header className="screen-line-bottom px-4 pt-12 pb-10 sm:px-8">
+      <header className="screen-line-bottom px-4 pt-8 pb-6 sm:px-8">
         <div className="flex flex-wrap items-end justify-between gap-6">
-          <div className="flex max-w-2xl flex-col gap-4">
+          <div className="flex max-w-2xl flex-col gap-3">
             <span className="rise flex items-center gap-2 text-sm text-muted-foreground">
               <span className="grid size-6 place-items-center rounded-md ring-1 ring-border">
                 <Icon className="size-3.5" strokeWidth={1.75} />
               </span>
               {eyebrow}
             </span>
-            <h1 className="rise text-4xl leading-[1.05] font-semibold tracking-tighter sm:text-5xl" style={rise(1)}>
+            <h1 className="rise text-3xl leading-[1.05] font-semibold tracking-tighter sm:text-4xl" style={rise(1)}>
               {title}
               {subtitle && <span className="block text-muted-foreground">{subtitle}</span>}
             </h1>
@@ -144,7 +132,7 @@ export function StatCell({ label, value, hint, index = 0 }: { label: string; val
       <div className="rise flex flex-col gap-2" style={rise(index)}>
         <MonoLabel>{label}</MonoLabel>
         <div className="text-3xl font-semibold tracking-tighter tabular-nums">{value}</div>
-        {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
+        {hint && <div className="text-sm text-muted-foreground">{hint}</div>}
       </div>
     </Cell>
   );

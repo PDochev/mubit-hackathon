@@ -22,6 +22,9 @@ export const STATUS_LABEL: Record<ClaimStatus, string> = {
 export const money = (n: number) =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 
+// Some rulings were typed with their own quote marks; the UI adds its own.
+export const ruling = (reason: string) => reason.replace(/^["“]+|["”]+$/g, "");
+
 // Event times, always shown in London time whatever the server's zone.
 export const londonTime = (
   iso: string,
