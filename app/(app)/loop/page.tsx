@@ -33,12 +33,29 @@ import {
 import { ADAPTER_EVIDENCE, type PairReply } from "@/lib/adapter-evidence";
 import { CorrectionTrace } from "./correction-trace";
 import { londonTime, money } from "@/lib/status";
+import { MUBIT_REQUESTS_URL } from "@/lib/console";
 import { readStore } from "@/lib/store";
 import type { ClaimRecord, EvalComparison, Game, Precedent } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const FIRST_TRAINING_AT = 25;
 const MUBIT_CONSOLE = "https://app.mubit.ai/console";
+
+// A recorded call's request ID; the console can't open a request by this id,
+// so it links to the Requests list.
+function RequestLink({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={MUBIT_REQUESTS_URL}
+      target="_blank"
+      rel="noreferrer"
+      title={`${id} · Mubit console requests`}
+      className="underline decoration-dotted underline-offset-4 hover:text-foreground"
+    >
+      {children}
+    </a>
+  );
+}
 
 export default function Page() {
   return (
@@ -318,9 +335,9 @@ function NightShift({ games }: { games: Game[] }) {
                 <VerdictBadge verdict={p.verdict} />
                 <span className="min-w-0 flex-1">{p.reason}</span>
                 {commit?.mubitRequestId && (
-                  <span title={commit.mubitRequestId}>
+                  <RequestLink id={commit.mubitRequestId}>
                     <MonoLabel>{shortId(commit.mubitRequestId)}</MonoLabel>
-                  </span>
+                  </RequestLink>
                 )}
               </div>
             );
@@ -387,9 +404,13 @@ function ExampleTable({ claims }: { claims: ClaimRecord[] }) {
                     : "text-destructive"
                 }
               >
-                {c.commit!.mubitRequestId
-                  ? shortId(c.commit!.mubitRequestId)
-                  : "—"}
+                {c.commit!.mubitRequestId ? (
+                  <RequestLink id={c.commit!.mubitRequestId}>
+                    {shortId(c.commit!.mubitRequestId)}
+                  </RequestLink>
+                ) : (
+                  "—"
+                )}
               </span>
             </TableCell>
           </TableRow>

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Verdict } from "@/lib/prompt";
 import type { Review, ShiftView } from "@/lib/shift";
 import { cn } from "@/lib/utils";
+import { MUBIT_REQUESTS_URL } from "@/lib/console";
 import { ADAPTER_EVIDENCE } from "@/lib/adapter-evidence";
 import {
   loadShift,
@@ -859,11 +860,20 @@ function Learned({ review, onNext }: { review: Review; onNext: () => void }) {
     : used.length
       ? `IT USED ${used.join(", ")} AND GOT IT RIGHT, NO HELP NEEDED`
       : "AGREED · NO NEW RULING NEEDED";
-  let detail: string;
+  let detail: React.ReactNode;
   if (ref && commit?.status === "verified")
-    detail = `RECORDED THROUGH MUBIT AS A TRAINING EXAMPLE · ${ref}`;
+    detail = (
+      <>
+        RECORDED THROUGH MUBIT AS A TRAINING EXAMPLE · <CopyRef id={ref} />
+      </>
+    );
   else if (ref)
-    detail = `RECORDED THROUGH MUBIT · ${ref} · THE MODEL DIDN'T REPEAT IT YET, SO IT ISN'T VERIFIED`;
+    detail = (
+      <>
+        RECORDED THROUGH MUBIT · <CopyRef id={ref} /> · THE MODEL DIDN&apos;T
+        REPEAT IT YET, SO IT ISN&apos;T VERIFIED
+      </>
+    );
   else
     detail = commit?.error ? `NOT RECORDED: ${commit.error}` : "NOT RECORDED";
   return (
@@ -878,6 +888,30 @@ function Learned({ review, onNext }: { review: Review; onNext: () => void }) {
         <PixelButton onClick={onNext}>NEXT CLAIM ▶</PixelButton>
       </div>
     </Panel>
+  );
+}
+
+// A Mubit request ID you can click to copy or select by hand; the scene is
+// otherwise select-none.
+function CopyRef({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      title="Copy request ID"
+      onClick={() => {
+        navigator.clipboard
+          ?.writeText(id)
+          .then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1200);
+          })
+          .catch(() => {});
+      }}
+      className="cursor-copy select-all underline decoration-dotted underline-offset-[0.3cqw] hover:text-white"
+    >
+      {copied ? "COPIED ✓" : id}
+    </button>
   );
 }
 
@@ -1102,9 +1136,15 @@ function Results({
         )}
       </div>
       <div className="flex min-h-0 flex-col gap-[0.3cqw]">
-        <span className="text-[1.2cqw] text-[var(--ns-amber)]">
-          MUBIT REQUESTS
-        </span>
+        <a
+          href={MUBIT_REQUESTS_URL}
+          target="_blank"
+          rel="noreferrer"
+          title="Open the Requests list in the Mubit console"
+          className="self-start text-[1.2cqw] text-[var(--ns-amber)] hover:text-white"
+        >
+          MUBIT REQUESTS ↗
+        </a>
         <p
           className={cn(
             "line-clamp-2 text-[1.3cqw] leading-[1.1] break-all text-[#9aa3e0]",
@@ -1113,11 +1153,12 @@ function Results({
         >
           {shift.commits
             .filter((c) => c.mubitRequestId)
-            .map(
-              (c) =>
-                `${c.mubitRequestId}${c.status === "verified" ? " ✓" : ""}`,
-            )
-            .join("  ")}
+            .map((c) => (
+              <span key={c.mubitRequestId} className="mr-[1cqw]">
+                <CopyRef id={c.mubitRequestId!} />
+                {c.status === "verified" ? " ✓" : ""}
+              </span>
+            ))}
         </p>
       </div>
       <p
