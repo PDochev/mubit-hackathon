@@ -1,29 +1,57 @@
 import "server-only";
 import { cookies } from "next/headers";
-import { encounter } from "@/app/play/encounters";
+import { encounter, ROUND_1, ROUND_2 } from "@/app/play/encounters";
+import { AUDIT } from "./audit";
 import { HOUSE_RULES } from "./generate";
 import { describeError } from "./mubit";
 import { relevantPrecedents, summariseClaim, tagClaim } from "./precedents";
 import { VERDICTS, type Verdict } from "./prompt";
 import type { Review, ShiftView, Teaching } from "./shift";
 import { nextId, readStore, updateStore } from "./store";
-import type { Decision, Game, Precedent } from "./types";
+import type { AuditAnswer, Decision, Game, GameClaim, Precedent } from "./types";
 import { verdictFor } from "./verdict";
 
 const COOKIE = "night-shift";
 const TEACHINGS: Teaching[] = Object.values(HOUSE_RULES);
 
+function stageOf(game: Game): ShiftView["stage"] {
+  const settled = new Set(game.claims.filter((c) => c.final).map((c) => c.npcId));
+  if (!ROUND_1.every((e) => settled.has(e.id))) return 1;
+  if (!ROUND_2.every((e) => settled.has(e.id))) return 2;
+  return 3;
+}
+
 function view(game: Game): ShiftView {
   const ruled = game.claims.filter((c) => c.final && c.firstPass);
-  const hits = ruled.filter((c) => c.firstPass!.verdict === c.final!.verdict);
+  const right = (claims: GameClaim[]) =>
+    claims.filter((c) => c.firstPass!.verdict === c.final!.verdict).length;
+  const roundScore = (round: 1 | 2) => {
+    const inRound = ruled.filter((c) => encounter(c.npcId)?.round === round);
+    return { ruled: inRound.length, right: right(inRound) };
+  };
   return {
+    stage: stageOf(game),
     precedents: game.precedents.map((p) => ({
       id: p.id,
       verdict: p.verdict,
       reason: p.reason,
     })),
     settled: game.claims.filter((c) => c.final).map((c) => c.npcId),
-    accuracy: ruled.length ? Math.round((100 * hits.length) / ruled.length) : 0,
+    accuracy: ruled.length ? Math.round((100 * right(ruled)) / ruled.length) : 0,
+    rounds: { 1: roundScore(1), 2: roundScore(2) },
+    commits: game.claims.flatMap((c) =>
+      c.commit
+        ? [{ npcId: c.npcId, status: c.commit.status, mubitRequestId: c.commit.mubitRequestId }]
+        : [],
+    ),
+    audit: game.audit && {
+      results: game.audit.results.map((r) => ({
+        ...r,
+        title: AUDIT.find((a) => a.id === r.id)?.title ?? r.id,
+      })),
+      untrainedRight: game.audit.results.filter((r) => r.untrained.verdict === r.expected).length,
+      trainedRight: game.audit.results.filter((r) => r.trained.verdict === r.expected).length,
+    },
   };
 }
 
@@ -113,6 +141,9 @@ export async function askApprentice(npcId: string): Promise<Review> {
   const person = encounter(npcId);
   const game = await loadShift();
   if (!person) return { ...reviewOf(game, npcId), error: "Nobody by that name works here." };
+  if (person.round > stageOf(game)) {
+    return { ...reviewOf(game, npcId), error: "That claim comes in later tonight." };
+  }
 
   const existing = game.claims.find((c) => c.npcId === npcId);
   if (existing?.firstPass) return reviewOf(game, npcId);
@@ -271,4 +302,56 @@ export async function ruleClaim(
   });
   const updated = await record(game.id, npcId, verdict, ruling);
   return reviewOf(updated, npcId);
+}
+
+async function auditAnswer(
+  claim: Parameters<typeof verdictFor>[0],
+  policy: Parameters<typeof verdictFor>[1],
+  precedents: Precedent[],
+): Promise<AuditAnswer> {
+  try {
+    const d = await verdictFor(claim, policy, precedents, "metadata");
+    return {
+      verdict: d.verdict,
+      clause: d.clause,
+      precedentIds: d.precedentIds,
+      mubitRequestId: d.mubitRequestId,
+    };
+  } catch (err) {
+    console.error(`[audit ${claim.id}]`, err);
+    return {
+      verdict: null,
+      clause: "",
+      precedentIds: [],
+      mubitRequestId: null,
+      error: describeError(err),
+    };
+  }
+}
+
+// The 09:00 audit, once both rounds are ruled: every unseen claim asked as
+// the apprentice started the night (no precedents) and as it ends it (this
+// shift's precedents). Metadata only: these answers are unchecked, so none
+// of them become training examples. Runs once per shift.
+export async function runAudit(): Promise<ShiftView> {
+  const game = await loadShift();
+  if (game.audit) return view(game);
+  if (stageOf(game) < 3) throw new Error("The audit starts at 09:00. Finish tonight's claims first.");
+
+  const { policy } = await readStore();
+  const results = await Promise.all(
+    AUDIT.map(async (a) => {
+      const claim = { ...a.claim, id: `A-${a.id}`, createdAt: new Date().toISOString() };
+      const [untrained, trained] = await Promise.all([
+        auditAnswer(claim, policy, []),
+        auditAnswer(claim, policy, relevantPrecedents(claim, game.precedents)),
+      ]);
+      return { id: a.id, expected: a.expected, untrained, trained };
+    }),
+  );
+  const updated = await editShift(game.id, (g) => {
+    g.audit ??= { at: new Date().toISOString(), results };
+    return g;
+  });
+  return view(updated);
 }

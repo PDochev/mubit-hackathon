@@ -1,6 +1,6 @@
 "use server";
 
-import { askApprentice, currentShift, newShift, ruleClaim } from "@/lib/game";
+import { askApprentice, currentShift, newShift, ruleClaim, runAudit } from "@/lib/game";
 import type { Verdict } from "@/lib/prompt";
 
 export async function loadShift() {
@@ -17,4 +17,8 @@ export async function reviewClaim(npcId: string) {
 
 export async function settleClaim(npcId: string, verdict: Verdict, reason?: string) {
   return ruleClaim(npcId, verdict, reason);
+}
+
+export async function startAudit() {
+  return runAudit();
 }

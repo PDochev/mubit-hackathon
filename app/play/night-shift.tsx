@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import type { Verdict } from "@/lib/prompt";
 import type { Review, ShiftView } from "@/lib/shift";
 import { cn } from "@/lib/utils";
-import { loadShift, reviewClaim, settleClaim, startShift } from "./actions";
-import { ENCOUNTERS, type Encounter } from "./encounters";
+import { ADAPTER_EVIDENCE } from "@/lib/adapter-evidence";
+import { loadShift, reviewClaim, settleClaim, startAudit, startShift } from "./actions";
+import { ENCOUNTERS, ROUND_2, type Encounter } from "./encounters";
 
 // Art is PixelLab output in public/play. The background is 400x248, so one art
 // pixel is 0.25cqw; every sprite is sized at that same scale.
@@ -15,7 +16,8 @@ const ART_PX = 0.25;
 // One claim at a time: the apprentice gives its call (a metadata-only first
 // pass through Mubit), you stamp it, and if you disagree you teach it why.
 // Your ruling becomes a precedent for the rest of the shift and is recorded
-// through Mubit as a training example (lib/game.ts).
+// through Mubit as a training example (lib/game.ts). Round 2 brings claims
+// that turn on the same rules; the 09:00 audit tests it alone.
 type Phase =
   | "loading" // fetching the shift
   | "asking" // the apprentice is reading the claim
@@ -24,7 +26,11 @@ type Phase =
   | "saving" // recording through Mubit
   | "done" // ruled; next claim
   | "error" // the apprentice couldn't be reached
-  | "over"; // every claim ruled
+  | "interlude" // 03:00, round 2 is about to start
+  | "audit-intro" // 09:00, every claim ruled
+  | "auditing" // the audit's model calls are running
+  | "audit" // the audit board
+  | "results"; // the shift report
 
 const STAMPS: { id: Verdict; label: string; color: string }[] = [
   { id: "approve", label: "APPROVE", color: "var(--ns-approve)" },
@@ -44,8 +50,8 @@ const SAID: Record<Verdict, string> = {
   needs_info: "NEED INFO",
 };
 
-// The wall clock as the night goes on, by claims ruled.
-const CLOCK = ["23:12", "01:05", "03:40", "06:15", "08:58"];
+// The wall clock as the night goes on, by claims ruled; then the audit.
+const CLOCK = ["23:12", "00:05", "00:58", "01:50", "03:05", "04:10", "05:20", "09:00"];
 
 // Each phase's robot face (public/play/robot-*.png) and body motion.
 const MOOD: Record<Phase, { face: string; motion: string }> = {
@@ -56,7 +62,11 @@ const MOOD: Record<Phase, { face: string; motion: string }> = {
   saving: { face: "thinking", motion: "ns-bob" },
   done: { face: "happy", motion: "ns-hop" },
   error: { face: "confused", motion: "ns-tilt" },
-  over: { face: "happy", motion: "ns-hop" },
+  interlude: { face: "idle", motion: "ns-bob" },
+  "audit-intro": { face: "confused", motion: "ns-bob" },
+  auditing: { face: "thinking", motion: "ns-bob" },
+  audit: { face: "happy", motion: "ns-hop" },
+  results: { face: "happy", motion: "ns-bob" },
 };
 
 const nextUp = (shift: ShiftView) => ENCOUNTERS.find((e) => !shift.settled.includes(e.id));
@@ -71,18 +81,25 @@ export function NightShift({ pixelFont, typeFont }: { pixelFont: string; typeFon
 
   // Opens the next unruled claim and asks the apprentice about it. Asking
   // again about a claim it already answered costs nothing: the server keeps
-  // the first pass.
-  function open(next: ShiftView) {
+  // the first pass. Between rounds it stops at 03:00 (unless `go`), and
+  // after the last claim it stops at the audit.
+  function open(next: ShiftView, go = false) {
     setShift(next);
     setStamp(null);
     setReview(null);
     setError(null);
     const e = nextUp(next);
-    setCurrent(e ?? null);
     if (!e) {
-      setPhase("over");
+      setCurrent(null);
+      setPhase(next.audit ? "audit" : "audit-intro");
       return;
     }
+    if (!go && e.id === ROUND_2[0].id && current?.round === 1) {
+      setCurrent(null);
+      setPhase("interlude");
+      return;
+    }
+    setCurrent(e);
     setPhase("asking");
     reviewClaim(e.id)
       .then((r) => {
@@ -107,6 +124,8 @@ export function NightShift({ pixelFont, typeFont }: { pixelFont: string; typeFon
         setError("Couldn't open the shift. Try again.");
         setPhase("error");
       });
+    // Once, on arrival: later claims are opened by the player's clicks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function rule(verdict: Verdict, reason?: string) {
@@ -148,8 +167,22 @@ export function NightShift({ pixelFont, typeFont }: { pixelFont: string; typeFon
       });
   }
 
+  function audit() {
+    setPhase("auditing");
+    setError(null);
+    startAudit()
+      .then((s) => {
+        setShift(s);
+        setPhase("audit");
+      })
+      .catch(() => {
+        setError("The audit couldn't reach the apprentice. Try again.");
+        setPhase("audit-intro");
+      });
+  }
+
   function retry() {
-    if (shift) open(shift);
+    if (shift) open(shift, true);
     else restart();
   }
 
@@ -175,7 +208,7 @@ export function NightShift({ pixelFont, typeFont }: { pixelFont: string; typeFon
 
         <Apprentice phase={phase} review={review} stamp={stamp} error={error} typeFont={typeFont} />
 
-        {current && phase !== "over" && (
+        {current && (
           <Claim key={current.id} encounter={current} typeFont={typeFont} stamp={phase === "ready" ? null : stamp} />
         )}
       </div>
@@ -217,7 +250,47 @@ export function NightShift({ pixelFont, typeFont }: { pixelFont: string; typeFon
           </div>
         </Panel>
       )}
-      {phase === "over" && shift && <ShiftOver shift={shift} onRestart={restart} />}
+      {phase === "interlude" && shift && (
+        <Panel accent="var(--ns-amber)">
+          <div className="flex items-center justify-between gap-[2cqw]">
+            <div className="flex min-w-0 flex-col gap-[0.4cqw]">
+              <span className="text-[1.9cqw] text-[var(--ns-amber)]">03:00 · SOME FAMILIAR FACES ARE BACK</span>
+              <span className="text-[1.3cqw] text-[#9aa3e0]">
+                {shift.precedents.length
+                  ? `NEW CLAIMS THAT TURN ON THE SAME RULES. THE APPRENTICE NOW KNOWS ${shift.precedents.map((p) => p.id).join(", ")}. LET IT TRY.`
+                  : "NEW CLAIMS THAT TURN ON THE SAME RULES. LET THE APPRENTICE TRY."}
+              </span>
+            </div>
+            <PixelButton onClick={() => open(shift, true)}>ROUND 2 ▶</PixelButton>
+          </div>
+        </Panel>
+      )}
+      {(phase === "audit-intro" || phase === "auditing") && (
+        <Panel accent="var(--ns-amber)">
+          <div className="flex items-center justify-between gap-[2cqw]">
+            <div className="flex min-w-0 flex-col gap-[0.4cqw]">
+              <span className="text-[1.9cqw] text-[var(--ns-amber)]">09:00 · THE AUDITOR IS HERE</span>
+              <span className="text-[1.3cqw] text-[#9aa3e0]">
+                {error ??
+                  "6 CLAIMS THE APPRENTICE HAS NEVER SEEN, NO HELP FROM YOU. EACH ONE IS ASKED TWICE: AS IT WAS AT 23:00, AND WITH YOUR RULINGS."}
+              </span>
+            </div>
+            {phase === "auditing" ? (
+              <span className="ns-dots shrink-0 text-[1.7cqw] text-[#cfd6ff]">
+                MARKING<span>.</span>
+                <span>.</span>
+                <span>.</span>
+              </span>
+            ) : (
+              <PixelButton onClick={audit}>START AUDIT ▶</PixelButton>
+            )}
+          </div>
+        </Panel>
+      )}
+      {phase === "audit" && shift?.audit && (
+        <AuditBoard audit={shift.audit} typeFont={typeFont} onNext={() => setPhase("results")} />
+      )}
+      {phase === "results" && shift && <Results shift={shift} typeFont={typeFont} onRestart={restart} />}
 
       <div className="ns-scanlines absolute inset-0" />
     </div>
@@ -340,8 +413,15 @@ function Speech({
       return thinking("WRITING THAT DOWN");
     case "error":
       return <span className="text-[var(--ns-violation)]">{error ?? "UH OH."}</span>;
-    case "over":
-      return <span className="ns-pop inline-block text-[var(--ns-learn)]">SHIFT DONE. SEE YOU AT THE AUDIT!</span>;
+    case "interlude":
+      return <span className="ns-pop inline-block text-[var(--ns-learn)]">LET ME TRY WHAT YOU TAUGHT ME.</span>;
+    case "audit-intro":
+      return <span className="ns-pop inline-block">AN AUDIT? NO HELP THIS TIME…</span>;
+    case "auditing":
+      return thinking("TAKING THE AUDIT");
+    case "audit":
+    case "results":
+      return <span className="ns-pop inline-block text-[var(--ns-learn)]">WHAT A NIGHT. SAME TIME TOMORROW?</span>;
     case "teach":
       return (
         <span className="ns-pop inline-block text-[var(--ns-violation)]">
@@ -353,7 +433,13 @@ function Speech({
       const unverified = review?.commit?.status === "unverified";
       return (
         <span className="ns-pop inline-block text-[var(--ns-learn)]">
-          {id ? (unverified ? `SAVED ${id}. STILL LEARNING IT.` : `GOT IT! LEARNED ${id}`) : "WE AGREE!"}
+          {id
+            ? unverified
+              ? `SAVED ${id}. STILL LEARNING IT.`
+              : `GOT IT! LEARNED ${id}`
+            : review?.precedentIds.length
+              ? `I REMEMBERED ${review.precedentIds.join(", ")}!`
+              : "WE AGREE!"}
         </span>
       );
     }
@@ -572,7 +658,12 @@ function Learned({ review, onNext }: { review: Review; onNext: () => void }) {
   const id = review.final?.precedentId;
   const commit = review.commit;
   const ref = commit?.mubitRequestId;
-  const title = id ? `+1 RULING · ${id} LEARNED` : "AGREED · NO NEW RULING NEEDED";
+  const used = review.precedentIds;
+  const title = id
+    ? `+1 RULING · ${id} LEARNED`
+    : used.length
+      ? `IT USED ${used.join(", ")} AND GOT IT RIGHT, NO HELP NEEDED`
+      : "AGREED · NO NEW RULING NEEDED";
   let detail: string;
   if (ref && commit?.status === "verified") detail = `RECORDED THROUGH MUBIT AS A TRAINING EXAMPLE · ${ref}`;
   else if (ref) detail = `RECORDED THROUGH MUBIT · ${ref} · THE MODEL DIDN'T REPEAT IT YET, SO IT ISN'T VERIFIED`;
@@ -590,22 +681,171 @@ function Learned({ review, onNext }: { review: Review; onNext: () => void }) {
   );
 }
 
-function ShiftOver({ shift, onRestart }: { shift: ShiftView; onRestart: () => void }) {
+const VERDICT_COLOR: Record<Verdict, string> = {
+  approve: "var(--ns-approve)",
+  violation: "var(--ns-violation)",
+  needs_info: "var(--ns-info)",
+};
+
+// A small stamp for the audit board, ticked or crossed against the answer.
+function Mark({ verdict, right, delay }: { verdict: Verdict | null; right?: boolean; delay: number }) {
   return (
-    <Panel accent="var(--ns-amber)">
-      <div className="flex items-center justify-between gap-[2cqw]">
-        <div className="flex min-w-0 flex-col gap-[0.4cqw]">
-          <span className="text-[1.9cqw] text-[var(--ns-amber)]">
-            SHIFT OVER · APPRENTICE AGREED WITH YOU {shift.accuracy}% OF THE TIME
-          </span>
-          <span className="truncate text-[1.3cqw] text-[#9aa3e0]">
-            {shift.precedents.length
-              ? `IT LEARNED ${shift.precedents.map((p) => p.id).join(", ")}: ${shift.precedents.map((p) => p.reason).join(" · ")}`
-              : "IT DIDN'T NEED ANY NEW RULINGS TONIGHT."}
-          </span>
-        </div>
+    <span
+      className="ns-stamp-mark inline-flex items-center gap-[0.5cqw] justify-self-start border-[0.25cqw] px-[0.6cqw] py-[0.1cqw] text-[1.15cqw] [rotate:-4deg]"
+      style={{
+        color: verdict ? VERDICT_COLOR[verdict] : "#7f88c9",
+        borderColor: "currentColor",
+        animationDelay: `${delay}s`,
+      }}
+    >
+      {verdict ? SAID[verdict] : "NO ANSWER"}
+      {right !== undefined && <span className={right ? "text-[var(--ns-approve)]" : "text-[var(--ns-violation)]"}>{right ? "✓" : "✗"}</span>}
+    </span>
+  );
+}
+
+// The overlays that replace the claim card: on the left, clear of the robot.
+function Board({ children, accent }: { children: React.ReactNode; accent: string }) {
+  return (
+    <div
+      className="ns-pop ns-px absolute top-[10%] bottom-[4%] left-[3%] flex w-[52%] flex-col gap-[1.2cqw] overflow-hidden bg-[#0b0d1f]/95 p-[1.8cqw]"
+      style={{ ["--px-color" as string]: accent }}
+    >
+      {children}
+    </div>
+  );
+}
+
+const STEP = 0.45; // seconds between audit rows
+
+function AuditBoard({
+  audit,
+  typeFont,
+  onNext,
+}: {
+  audit: NonNullable<ShiftView["audit"]>;
+  typeFont: string;
+  onNext: () => void;
+}) {
+  const n = audit.results.length;
+  const end = n * STEP + 0.4;
+  return (
+    <Board accent="var(--ns-amber)">
+      <div className="flex items-baseline justify-between">
+        <span className="text-[2cqw] text-[var(--ns-amber)]">09:00 AUDIT</span>
+        <span className="text-[1.2cqw] text-[#7f88c9]">{n} CLAIMS IT HAD NEVER SEEN</span>
+      </div>
+      <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-[1.6cqw] gap-y-[1cqw] text-[1.15cqw] text-[#7f88c9]">
+        <span>CLAIM</span>
+        <span>CORRECT</span>
+        <span>AT 23:00</span>
+        <span>WITH YOUR RULINGS</span>
+        {audit.results.map((r, i) => (
+          <div key={r.id} className="contents">
+            <span
+              className={cn("ns-pop text-[1.6cqw] leading-[1.05] text-[#e8ecff]", typeFont)}
+              style={{ animationDelay: `${i * STEP}s` }}
+            >
+              {r.title}
+            </span>
+            <Mark verdict={r.expected} delay={i * STEP} />
+            <Mark verdict={r.untrained.verdict} right={r.untrained.verdict === r.expected} delay={i * STEP + 0.15} />
+            <span className="flex flex-col gap-[0.2cqw]">
+              <Mark verdict={r.trained.verdict} right={r.trained.verdict === r.expected} delay={i * STEP + 0.3} />
+              {r.trained.precedentIds.length > 0 && (
+                <span className="mt-[0.5cqw] text-[1cqw] text-[var(--ns-learn)]">USING {r.trained.precedentIds.join(", ")}</span>
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-auto flex items-center justify-between gap-[2cqw]">
+        <span className="ns-pop text-[2.2cqw]" style={{ animationDelay: `${end}s` }}>
+          <span className="text-[#9aa3e0]">{audit.untrainedRight}/{n}</span>
+          <span className="text-[#7f88c9]"> → </span>
+          <span className="text-[var(--ns-learn)]">{audit.trainedRight}/{n}</span>
+          <span className="ml-[1cqw] text-[1.2cqw] text-[#7f88c9]">AFTER ONE NIGHT OF RULINGS</span>
+        </span>
+        <PixelButton onClick={onNext}>SHIFT REPORT ▶</PixelButton>
+      </div>
+    </Board>
+  );
+}
+
+function Stat({ label, value, note }: { label: string; value: React.ReactNode; note: string }) {
+  return (
+    <div className="ns-px flex flex-col gap-[0.3cqw] bg-[#14173a] p-[1cqw] [--px-color:#3a4180]">
+      <span className="text-[1.1cqw] text-[#7f88c9]">{label}</span>
+      <span className="text-[2.2cqw] text-[var(--ns-learn)]">{value}</span>
+      <span className="text-[1cqw] text-[#9aa3e0]">{note}</span>
+    </div>
+  );
+}
+
+function Results({
+  shift,
+  typeFont,
+  onRestart,
+}: {
+  shift: ShiftView;
+  typeFont: string;
+  onRestart: () => void;
+}) {
+  const r1 = shift.rounds[1];
+  const r2 = shift.rounds[2];
+  const verified = shift.commits.filter((c) => c.status === "verified").length;
+  const a = ADAPTER_EVIDENCE;
+  const speed = (a.pair.provider.latencyMs / a.pair.adapter.latencyMs).toFixed(1);
+  const tokens = (a.pair.provider.tokensOut / a.pair.adapter.tokensOut).toFixed(1);
+  return (
+    <Board accent="var(--ns-learn)">
+      <span className="text-[2cqw] text-[var(--ns-learn)]">SHIFT REPORT</span>
+      <div className="grid grid-cols-3 gap-[1.2cqw]">
+        <Stat
+          label="AGREED WITH YOU"
+          value={`${r1.right}/${r1.ruled} → ${r2.right}/${r2.ruled}`}
+          note="ROUND 1 → ROUND 2"
+        />
+        <Stat
+          label="AUDIT"
+          value={shift.audit ? `${shift.audit.untrainedRight} → ${shift.audit.trainedRight}/${shift.audit.results.length}` : "--"}
+          note="BEFORE → AFTER YOUR RULINGS"
+        />
+        <Stat label="RECORDED THROUGH MUBIT" value={`${verified}/${shift.commits.length}`} note="VERIFIED TRAINING EXAMPLES" />
+      </div>
+      <div className="flex min-h-0 flex-col gap-[0.5cqw]">
+        <span className="text-[1.2cqw] text-[var(--ns-amber)]">WHAT YOU TAUGHT IT</span>
+        {shift.precedents.length ? (
+          shift.precedents.map((p) => (
+            <p key={p.id} className={cn("line-clamp-1 text-[1.5cqw] leading-[1.05] text-[#e8ecff]", typeFont)}>
+              <span className="text-[var(--ns-learn)]">{p.id}</span> {p.reason}
+            </p>
+          ))
+        ) : (
+          <p className={cn("text-[1.5cqw] text-[#9aa3e0]", typeFont)}>Nothing new: it agreed with you every time.</p>
+        )}
+      </div>
+      <div className="flex min-h-0 flex-col gap-[0.3cqw]">
+        <span className="text-[1.2cqw] text-[var(--ns-amber)]">MUBIT REQUESTS</span>
+        <p className={cn("line-clamp-2 text-[1.3cqw] leading-[1.1] break-all text-[#9aa3e0]", typeFont)}>
+          {shift.commits
+            .filter((c) => c.mubitRequestId)
+            .map((c) => `${c.mubitRequestId}${c.status === "verified" ? " ✓" : ""}`)
+            .join("  ")}
+        </p>
+      </div>
+      <p className={cn("text-[1.45cqw] leading-[1.1] text-[#cfd6ff]", typeFont)}>
+        <span className="text-[var(--ns-amber)]">OVERNIGHT · </span>
+        Mubit trains a small model on recorded examples like these. Our adapter ({a.base}, {a.version}) went from{" "}
+        {Math.round(a.exam.base * 100)}% to {Math.round(a.exam.adapter * 100)}% on its exam, and answers a contractor claim
+        like {a.pair.provider.model}: {speed}× faster, {tokens}× fewer tokens.
+      </p>
+      <div className="mt-auto flex items-center justify-end gap-[2cqw]">
+        <Link href="/loop" className="text-[1.4cqw] text-[#7f88c9] hover:text-white">
+          ENGINE ROOM ▶
+        </Link>
         <PixelButton onClick={onRestart}>NEW SHIFT ▶</PixelButton>
       </div>
-    </Panel>
+    </Board>
   );
 }

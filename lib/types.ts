@@ -145,11 +145,33 @@ export type GameClaim = {
   commit?: Commit;
 };
 
+// The 09:00 audit: each unseen claim asked twice, metadata only — once with
+// no precedents (the apprentice as it started the night) and once with this
+// shift's precedents (as it ends it).
+export type AuditAnswer = {
+  verdict: Verdict | null;
+  clause: string;
+  precedentIds: string[];
+  mubitRequestId: string | null;
+  error?: string;
+};
+
+export type GameAudit = {
+  at: string;
+  results: {
+    id: string;
+    expected: Verdict;
+    untrained: AuditAnswer;
+    trained: AuditAnswer;
+  }[];
+};
+
 export type Game = {
   id: string;
   createdAt: string;
   precedents: Precedent[];
   claims: GameClaim[];
+  audit?: GameAudit;
 };
 
 export type Store = {
