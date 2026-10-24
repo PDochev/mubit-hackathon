@@ -8,18 +8,31 @@ import OpenAI, {
 export const MUBIT_BASE_URL = "https://api.mubit.ai/openai/v1";
 export const MODEL = "gpt-6-luna";
 
-const client = new OpenAI({
-  baseURL: MUBIT_BASE_URL,
-  apiKey: process.env.MUBIT_API_KEY,
-  // Replies take 1-3 s; anything near 15 s is stuck. One retry, so a demo
-  // waits at most about half a minute before showing an error.
-  maxRetries: 1,
-  timeout: 15_000,
-});
+// Thrown instead of a model call when there is no key, so the app can still
+// be browsed (from the demo snapshot) without one.
+class MissingKeyError extends Error {}
+
+let client: OpenAI | null = null;
+
+function mubit(): OpenAI {
+  if (!process.env.MUBIT_API_KEY)
+    throw new MissingKeyError("MUBIT_API_KEY is not set");
+  client ??= new OpenAI({
+    baseURL: MUBIT_BASE_URL,
+    apiKey: process.env.MUBIT_API_KEY,
+    // Replies take 1-3 s; anything near 15 s is stuck. One retry, so a demo
+    // waits at most about half a minute before showing an error.
+    maxRetries: 1,
+    timeout: 15_000,
+  });
+  return client;
+}
 
 // What went wrong, in words a reviewer can act on. The raw error goes to the
 // server log, never to the page.
 export function describeError(err: unknown): string {
+  if (err instanceof MissingKeyError)
+    return "No Mubit API key. Set MUBIT_API_KEY in .env.local and restart the server.";
   if (err instanceof APIConnectionTimeoutError)
     return "Mubit took too long to answer. Try again in a moment.";
   if (err instanceof APIConnectionError)
@@ -57,8 +70,8 @@ export async function chat(
   record: RecordMode,
 ): Promise<ChatResult> {
   const started = Date.now();
-  const { data, response } = await client.chat.completions
-    .create(
+  const { data, response } = await mubit()
+    .chat.completions.create(
       {
         model: MODEL,
         response_format: { type: "json_object" },

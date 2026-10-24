@@ -6,23 +6,37 @@ import type { Store } from "./types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const STORE_PATH = path.join(DATA_DIR, "store.json");
+// The committed snapshot of our demo data (claims, precedents, evaluations,
+// Night Shift games). A fresh clone starts from it; the first write copies it
+// into data/store.json, which is gitignored.
+const DEMO_PATH = path.join(process.cwd(), "demo", "store.json");
 
 function emptyStore(): Store {
   return {
     claims: [],
     precedents: [],
-    policy: { text: DEFAULT_POLICY, version: 1, updatedAt: new Date().toISOString() },
+    policy: {
+      text: DEFAULT_POLICY,
+      version: 1,
+      updatedAt: new Date().toISOString(),
+    },
     evals: [],
   };
 }
 
-export async function readStore(): Promise<Store> {
+async function readJson(file: string): Promise<Store | null> {
   try {
-    return JSON.parse(await readFile(STORE_PATH, "utf8")) as Store;
+    return JSON.parse(await readFile(file, "utf8")) as Store;
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return emptyStore();
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw err;
   }
+}
+
+export async function readStore(): Promise<Store> {
+  return (
+    (await readJson(STORE_PATH)) ?? (await readJson(DEMO_PATH)) ?? emptyStore()
+  );
 }
 
 // Serialise every read-modify-write so concurrent model calls can't clobber
