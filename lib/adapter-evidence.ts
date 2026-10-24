@@ -22,7 +22,8 @@ export const ADAPTER_EVIDENCE = {
     "https://app.mubit.ai/console/projects/ws-e4d85b3d9c35a2e0/adapters?adapter=ad_lane_038749d7",
   version: "v1",
   base: "Qwen3-4B-Instruct-2507",
-  trainedAt: "23 Oct",
+  // When v1's training started (console: 23 Oct, 20:35:31 London time).
+  trainingStartedAt: "2026-10-23T19:35:31Z",
   stage: "shadow" as AdapterStage,
   shadowShare: 0.1,
   // The engine's exam on held-out examples: the untrained base vs the adapter.

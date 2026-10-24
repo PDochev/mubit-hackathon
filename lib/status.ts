@@ -21,3 +21,14 @@ export const STATUS_LABEL: Record<ClaimStatus, string> = {
 
 export const money = (n: number) =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
+
+// Event times, always shown in London time whatever the server's zone.
+export const londonTime = (
+  iso: string,
+  options: Intl.DateTimeFormatOptions = {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  },
+) => new Date(iso).toLocaleString("en-GB", { timeZone: "Europe/London", ...options });

@@ -35,9 +35,10 @@ import {
   type PairReply,
 } from "@/lib/adapter-evidence";
 import { publicUrl } from "@/lib/lan";
-import { money } from "@/lib/status";
+import { CorrectionTrace } from "./correction-trace";
+import { londonTime, money } from "@/lib/status";
 import { readStore } from "@/lib/store";
-import type { ClaimRecord, EvalComparison } from "@/lib/types";
+import type { ClaimRecord, EvalComparison, Precedent } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const FIRST_TRAINING_AT = 25;
@@ -160,7 +161,7 @@ async function Loop() {
 
       <HatchBand />
 
-      <AdapterEvidence claims={claims} />
+      <AdapterEvidence claims={claims} precedents={precedents} />
 
       <HatchBand />
 
@@ -346,14 +347,20 @@ function Comparison({
 }
 
 const STAGE_LABEL: Record<AdapterStage, string> = {
-  trained: `Trained · ${ADAPTER_EVIDENCE.trainedAt}`,
+  trained: `Trained · ${londonTime(ADAPTER_EVIDENCE.trainingStartedAt, { day: "numeric", month: "short" })}`,
   shadow: `Shadow · ${ADAPTER_EVIDENCE.shadowShare * 100}%`,
   canary: "Canary",
   live: "Live",
 };
 
 // The permanent fix: the open model Mubit trained on verified corrections.
-function AdapterEvidence({ claims }: { claims: ClaimRecord[] }) {
+function AdapterEvidence({
+  claims,
+  precedents,
+}: {
+  claims: ClaimRecord[];
+  precedents: Precedent[];
+}) {
   const e = ADAPTER_EVIDENCE;
   const claim = claims.find((c) => c.id === e.pair.claimId);
   const pct = (n: number) => `${Math.round(n * 100)}%`;
@@ -363,9 +370,10 @@ function AdapterEvidence({ claims }: { claims: ClaimRecord[] }) {
     <>
       <SectionHeader title="Adapter evidence">
         <div className="flex items-center gap-3">
-          <MonoLabel className="hidden sm:inline">
+          <MonoLabel className="hidden lg:inline">
             {e.version} · {e.base} · from the Mubit console, {e.copiedAt}
           </MonoLabel>
+          <CorrectionTrace claims={claims} precedents={precedents} />
           <Link
             href={e.consoleUrl}
             target="_blank"
