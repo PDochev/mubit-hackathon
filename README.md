@@ -20,10 +20,8 @@ git clone https://github.com/PDochev/mubit-hackathon.git
 cd mubit-hackathon
 npm install
 cp .env.example .env.local     # then paste your Mubit key into it
-npm run dev
+npm run dev                    # http://localhost:3000
 ```
-
-Open **http://localhost:3000**. Use `localhost`, not a LAN IP: finance actions (approve, override, run evaluation) only work from localhost (see [Limitations](#limitations)).
 
 **What you'll see straight away.** The app starts from `demo/store.json`, a snapshot of our own data: 317 claims, 3 precedents, 7 evaluation runs and 13 Night Shift games. Every page has content, and the results below can be checked on the Learning loop page without spending anything. Your changes are saved to `data/store.json` (gitignored); delete that file to go back to the snapshot.
 
@@ -138,7 +136,7 @@ Next.js 16 (App Router, Cache Components), React 19, Tailwind v4, shadcn/ui (Bas
 
 ## Limitations
 
-- **Demo-grade access control.** Finance actions only work from `localhost` (`lib/reviewer.ts`); there is no login. Anyone who can reach the app can play Night Shift, which uses model calls.
+- **No login.** There are no user accounts or roles: it's a single-reviewer demo meant to run on your own machine.
 - **A JSON file as the database**, fine for a demo, not for concurrent users at scale. It also means there's no hosted version: serverless platforms don't keep local files.
 - **Synthetic training data.** Seeded claims are generated from templates with known answers; the evaluation uses separate templates and vocabulary so it measures generalisation, not recall.
 - **The adapter can't be called from the app.** Mubit serves it in silent-test mode only, so the side-by-side comparison comes from Mubit's own silent-test pairs.
