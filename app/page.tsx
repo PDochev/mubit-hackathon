@@ -9,6 +9,7 @@ import {
   VERDICT_LABEL,
   VerdictBadge,
 } from "@/components/app-ui";
+import { QrDialog } from "@/components/qr-dialog";
 import { SubmitButton } from "@/components/submit-button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
@@ -85,6 +86,9 @@ export default function Page({ searchParams }: PageProps<"/">) {
         subtitle="Teach it once."
         description="The model checks every claim against the policy and your precedents. Confirm it, or override it with a reason: the override becomes a precedent and a corrected training example."
       >
+        <Suspense>
+          <QrDialog />
+        </Suspense>
         <Link href="/submit" className={buttonVariants({ variant: "outline" })}>
           Submit an expense
           <ArrowRight data-icon="inline-end" />
@@ -100,11 +104,13 @@ export default function Page({ searchParams }: PageProps<"/">) {
 async function Inbox({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
   await connection();
   const params = await searchParams;
-  const filterId = typeof params.filter === "string" ? params.filter : "review";
   const selectedId =
     typeof params.claim === "string" ? params.claim : undefined;
   const store = await readStore();
-  const filter = FILTERS.find((f) => f.id === filterId) ?? FILTERS[0];
+  // Open on the review queue, or on every claim when the queue is empty.
+  const requested = FILTERS.find((f) => f.id === params.filter);
+  const queueEmpty = !store.claims.some(FILTERS[0].match);
+  const filter = requested ?? (queueEmpty ? FILTERS[3] : FILTERS[0]);
   const claims = store.claims.filter(filter.match).reverse();
   const selected = store.claims.find((c) => c.id === selectedId);
 
@@ -129,7 +135,13 @@ async function Inbox({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
             </Link>
           ))}
         </div>
-        <MonoLabel>{claims.length} claims</MonoLabel>
+        {!requested && queueEmpty ? (
+          <span className="text-sm text-muted-foreground">
+            Nothing needs review. Showing every claim, newest first.
+          </span>
+        ) : (
+          <MonoLabel>{claims.length} claims</MonoLabel>
+        )}
       </div>
 
       <div

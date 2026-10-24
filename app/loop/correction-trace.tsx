@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ADAPTER_EVIDENCE } from "@/lib/adapter-evidence";
-import { londonTime, money } from "@/lib/status";
+import { londonTime, money, ruling } from "@/lib/status";
 import type { ClaimRecord, Precedent } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -41,11 +41,12 @@ export function CorrectionTrace({
   const e = ADAPTER_EVIDENCE;
   // Open on the ruling the adapter evidence shows a pair for.
   const first =
-    precedents.find((p) => p.id === e.pair.adapter.clause) ?? precedents.at(-1)!;
+    precedents.find((p) => p.id === e.pair.adapter.clause) ??
+    precedents.at(-1)!;
 
   return (
     <Dialog>
-      <DialogTrigger render={<Button variant="outline" size="sm" />}>
+      <DialogTrigger render={<Button />}>
         <Route data-icon="inline-start" />
         Trace a correction
       </DialogTrigger>
@@ -53,7 +54,8 @@ export function CorrectionTrace({
         <DialogHeader>
           <DialogTitle>Trace a correction</DialogTitle>
           <DialogDescription>
-            From one finance override to the open model Mubit trains.
+            From one finance override to the open model Mubit trains. P2, P4…
+            are precedents: rulings the model cites like policy sections.
           </DialogDescription>
         </DialogHeader>
         <Tabs defaultValue={first.id}>
@@ -137,10 +139,7 @@ function traceSteps(p: Precedent, claims: ClaimRecord[]): Step[] {
               <VerdictBadge verdict={p.verdict} />
             </div>
           )}
-          {/* Some reasons were typed with their own quote marks. */}
-          <p className="text-foreground">
-            &ldquo;{p.reason.replace(/^["“]+|["”]+$/g, "")}&rdquo;
-          </p>
+          <p className="text-foreground">&ldquo;{ruling(p.reason)}&rdquo;</p>
         </>
       ),
     },
@@ -165,8 +164,8 @@ function traceSteps(p: Precedent, claims: ClaimRecord[]): Step[] {
         <>
           <p>
             <Strong>{examples.length}</Strong> calls recorded through Mubit with
-            finance&apos;s answer, each re-run checked against the human
-            verdict before it counts.
+            finance&apos;s answer, each re-run checked against the human verdict
+            before it counts.
           </p>
           {examples[0]?.commit!.mubitRequestId && (
             <MonoLabel>first: {examples[0].commit!.mubitRequestId}</MonoLabel>
@@ -224,7 +223,15 @@ function traceSteps(p: Precedent, claims: ClaimRecord[]): Step[] {
   ];
 }
 
-function TraceStep({ step, n, last }: { step: Step; n: number; last: boolean }) {
+function TraceStep({
+  step,
+  n,
+  last,
+}: {
+  step: Step;
+  n: number;
+  last: boolean;
+}) {
   return (
     <li className="relative flex gap-4 pb-6 last:pb-0">
       {!last && (

@@ -1,7 +1,6 @@
 import { ArrowRight, ArrowUpRight, RefreshCcw } from "lucide-react";
 import Link from "next/link";
 import { connection } from "next/server";
-import QRCode from "qrcode";
 import { Suspense } from "react";
 import { runEvaluation } from "@/app/actions";
 import {
@@ -16,10 +15,12 @@ import {
   StatCell,
   VerdictBadge,
 } from "@/components/app-ui";
+import { QrDialog, submitQr } from "@/components/qr-dialog";
 import { SubmitButton } from "@/components/submit-button";
 import { buttonVariants } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -34,7 +35,6 @@ import {
   type AdapterStage,
   type PairReply,
 } from "@/lib/adapter-evidence";
-import { publicUrl } from "@/lib/lan";
 import { CorrectionTrace } from "./correction-trace";
 import { londonTime, money } from "@/lib/status";
 import { readStore } from "@/lib/store";
@@ -54,6 +54,9 @@ export default function Page() {
         subtitle="becomes a model update."
         description="Overrides apply straight away as precedents, and are recorded through Mubit as corrected training examples for a task-adapted open model."
       >
+        <Suspense>
+          <QrDialog />
+        </Suspense>
         <Link
           href={MUBIT_CONSOLE}
           target="_blank"
@@ -87,6 +90,9 @@ async function Loop() {
   const { claims, precedents, evals } = await readStore();
   const committed = claims.filter((c) => c.commit);
   const verified = committed.filter((c) => c.commit!.status === "verified");
+  const corrected = committed.filter(
+    (c) => c.final && c.final.verdict !== c.firstPass?.verdict,
+  );
   const overrides = claims.filter(
     (c) => c.final && c.firstPass && c.final.verdict !== c.firstPass.verdict,
   );
@@ -105,16 +111,52 @@ async function Loop() {
   const before = accuracy(houseRule.filter((c) => !hadRuling(c)));
   const after = accuracy(houseRule.filter(hadRuling));
 
-  const submitUrl = `${publicUrl()}/submit`;
-  const qr = await QRCode.toDataURL(submitUrl, {
-    margin: 1,
-    width: 240,
-    color: { dark: "#09090b", light: "#ffffff" },
-  });
+  const { url: submitUrl, src: qr } = await submitQr(240);
   const run = evals.at(-1);
 
   return (
     <>
+      <CellGrid className="sm:grid-cols-2 lg:grid-cols-4">
+        <StatCell
+          index={0}
+          label="training examples sent"
+          value={verified.length}
+          hint={
+            <div className="flex flex-col gap-2">
+              <Progress
+                value={Math.min(
+                  100,
+                  (verified.length / FIRST_TRAINING_AT) * 100,
+                )}
+              />
+              {verified.length >= FIRST_TRAINING_AT
+                ? "Enough for Mubit to train"
+                : `${FIRST_TRAINING_AT} needed for the first training`}
+            </div>
+          }
+        />
+        <StatCell
+          index={1}
+          label="corrections"
+          value={overrides.length}
+          hint="Overrides with a written ruling"
+        />
+        <StatCell
+          index={2}
+          label="precedents"
+          value={precedents.length}
+          hint="Applied to every matching claim"
+        />
+        <StatCell
+          index={3}
+          label="house rules, live claims"
+          value={`${pct(before.right, before.n)} → ${pct(after.right, after.n)}`}
+          hint={`Right first time on real traffic, before vs after a matching precedent existed (${before.n} / ${after.n} claims)`}
+        />
+      </CellGrid>
+
+      <HatchBand />
+
       <SectionHeader title="Held-out evaluation">
         <div className="flex items-center gap-3">
           {run && (
@@ -165,116 +207,34 @@ async function Loop() {
 
       <HatchBand />
 
-      <CellGrid className="sm:grid-cols-2 lg:grid-cols-4">
-        <StatCell
-          index={0}
-          label="training examples sent"
-          value={verified.length}
-          hint={
-            <div className="flex flex-col gap-2">
-              <Progress
-                value={Math.min(
-                  100,
-                  (verified.length / FIRST_TRAINING_AT) * 100,
-                )}
-              />
-              {verified.length >= FIRST_TRAINING_AT
-                ? "Enough for Mubit to train"
-                : `${FIRST_TRAINING_AT} needed for the first training`}
-            </div>
-          }
-        />
-        <StatCell
-          index={1}
-          label="corrections"
-          value={overrides.length}
-          hint="Overrides with a written ruling"
-        />
-        <StatCell
-          index={2}
-          label="precedents"
-          value={precedents.length}
-          hint="Applied to every matching claim"
-        />
-        <StatCell
-          index={3}
-          label="house rules, first time"
-          value={`${pct(before.right, before.n)} → ${pct(after.right, after.n)}`}
-          hint={`Live claims before vs after a precedent (${before.n} / ${after.n})`}
-        />
-      </CellGrid>
-
-      <HatchBand />
-
       <CellGrid className="lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0 bg-background">
-          <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-line px-4 py-6 sm:px-8">
-            <h2 className="text-lg font-semibold tracking-tight">
-              Recorded examples
-            </h2>
-            <span className="text-sm text-muted-foreground">
-              Only human-checked verdicts train the model
-            </span>
+        <Tabs defaultValue="latest" className="min-w-0 gap-0 bg-background">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-5 sm:px-8">
+            <div className="flex flex-col gap-0.5">
+              <h2 className="text-lg font-semibold tracking-tight">
+                Recorded examples
+              </h2>
+              <span className="text-sm text-muted-foreground">
+                Only human-checked verdicts train the model
+              </span>
+            </div>
+            <TabsList>
+              <TabsTrigger value="latest">Latest</TabsTrigger>
+              <TabsTrigger value="corrected">
+                Corrections
+                <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                  {corrected.length}
+                </span>
+              </TabsTrigger>
+            </TabsList>
           </div>
-          <Table className="[&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4 sm:[&_td:first-child]:pl-8 sm:[&_td:last-child]:pr-8 sm:[&_th:first-child]:pl-8 sm:[&_th:last-child]:pr-8">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Claim</TableHead>
-                <TableHead>Decision</TableHead>
-                <TableHead>How</TableHead>
-                <TableHead>Mubit request</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {[...committed]
-                .reverse()
-                .slice(0, 10)
-                .map((c) => (
-                  <TableRow key={c.id} className="h-14">
-                    <TableCell>
-                      <Link
-                        href={`/?filter=all&claim=${c.id}`}
-                        className="group flex flex-col"
-                      >
-                        <span className="group-hover:underline">
-                          {c.merchant}
-                        </span>
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {c.id}
-                        </span>
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      {c.final && <VerdictBadge verdict={c.final.verdict} />}
-                    </TableCell>
-                    <TableCell>
-                      {c.final && c.final.verdict !== c.firstPass?.verdict ? (
-                        <span className="font-medium">
-                          Corrected
-                          {c.final.precedentId
-                            ? ` → ${c.final.precedentId}`
-                            : ""}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">Confirmed</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      <span
-                        className={
-                          c.commit!.status === "verified"
-                            ? "text-muted-foreground"
-                            : "text-destructive"
-                        }
-                      >
-                        {c.commit!.mubitRequestId ?? "—"}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-            </TableBody>
-          </Table>
-        </div>
+          <TabsContent value="latest">
+            <ExampleTable claims={committed.toReversed().slice(0, 10)} />
+          </TabsContent>
+          <TabsContent value="corrected">
+            <ExampleTable claims={corrected.toReversed().slice(0, 10)} />
+          </TabsContent>
+        </Tabs>
 
         <Cell className="relative flex flex-col items-center gap-4">
           <div className="flex w-full items-baseline justify-between">
@@ -296,6 +256,68 @@ async function Loop() {
         </Cell>
       </CellGrid>
     </>
+  );
+}
+
+// Long Mubit request IDs, shortened to their start and end.
+const shortId = (id: string) => `${id.slice(0, 13)}…${id.slice(-4)}`;
+
+function ExampleTable({ claims }: { claims: ClaimRecord[] }) {
+  return (
+    <Table className="[&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4 sm:[&_td:first-child]:pl-8 sm:[&_td:last-child]:pr-8 sm:[&_th:first-child]:pl-8 sm:[&_th:last-child]:pr-8">
+      <TableHeader>
+        <TableRow>
+          <TableHead>Claim</TableHead>
+          <TableHead>Decision</TableHead>
+          <TableHead>How</TableHead>
+          <TableHead>Mubit request</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {claims.map((c) => (
+          <TableRow key={c.id} className="h-14">
+            <TableCell>
+              <Link
+                href={`/?filter=all&claim=${c.id}`}
+                className="group flex flex-col"
+              >
+                <span className="group-hover:underline">{c.merchant}</span>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {c.id}
+                </span>
+              </Link>
+            </TableCell>
+            <TableCell>
+              {c.final && <VerdictBadge verdict={c.final.verdict} />}
+            </TableCell>
+            <TableCell>
+              {c.final && c.final.verdict !== c.firstPass?.verdict ? (
+                <span className="font-medium">
+                  Corrected
+                  {c.final.precedentId ? ` → ${c.final.precedentId}` : ""}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">Confirmed</span>
+              )}
+            </TableCell>
+            <TableCell className="font-mono text-xs">
+              <span
+                title={c.commit!.mubitRequestId ?? undefined}
+                className={
+                  c.commit!.status === "verified"
+                    ? "text-muted-foreground"
+                    : "text-destructive"
+                }
+              >
+                {c.commit!.mubitRequestId
+                  ? shortId(c.commit!.mubitRequestId)
+                  : "—"}
+              </span>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 
@@ -373,7 +395,6 @@ function AdapterEvidence({
           <MonoLabel className="hidden lg:inline">
             {e.version} · {e.base} · from the Mubit console, {e.copiedAt}
           </MonoLabel>
-          <CorrectionTrace claims={claims} precedents={precedents} />
           <Link
             href={e.consoleUrl}
             target="_blank"
@@ -386,27 +407,30 @@ function AdapterEvidence({
       </SectionHeader>
 
       <CellGrid className="md:grid-cols-2">
-        <Cell className="flex flex-col gap-2 md:col-span-2">
-          <MonoLabel>same claim, two models · a silent-test copy</MonoLabel>
-          {claim && (
-            <Link
-              href={`/?filter=all&claim=${claim.id}`}
-              className="group flex flex-col gap-0.5"
-            >
-              <span className="font-medium group-hover:underline">
-                {claim.merchant} · {money(claim.amount)} · {claim.headcount}{" "}
-                people
-              </span>
-              <span className="text-sm text-muted-foreground">
-                {claim.attendees}. {claim.purpose}.
-              </span>
-            </Link>
-          )}
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            Both models get the policy and precedent P2, a finance override:
-            contractors count as team. The open model, trained only on
-            human-verified answers, applies the ruling the way finance does.
-          </p>
+        <Cell className="flex flex-wrap items-end justify-between gap-4 md:col-span-2">
+          <div className="flex max-w-3xl flex-col gap-2">
+            <MonoLabel>same claim, two models · a silent-test copy</MonoLabel>
+            {claim && (
+              <Link
+                href={`/?filter=all&claim=${claim.id}`}
+                className="group flex flex-col gap-0.5"
+              >
+                <span className="font-medium group-hover:underline">
+                  {claim.merchant} · {money(claim.amount)} · {claim.headcount}{" "}
+                  people
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {claim.attendees}. {claim.purpose}.
+                </span>
+              </Link>
+            )}
+            <p className="text-sm text-muted-foreground">
+              Both models get the policy and precedent P2, a finance override:
+              contractors count as team. The open model, trained only on
+              human-verified answers, applies the ruling the way finance does.
+            </p>
+          </div>
+          <CorrectionTrace claims={claims} precedents={precedents} />
         </Cell>
         <PairCell index={0} title="Provider" reply={e.pair.provider} />
         <PairCell index={1} title="Your adapter" reply={e.pair.adapter} />
