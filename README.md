@@ -52,8 +52,8 @@ It runs on the same engine as the inbox (`lib/game.ts`): first passes are `metad
 
 | | Policy only | Policy + precedents |
 |---|---|---|
-| All claims | 76% | **88%** |
-| House-rule cases (only a correction can fix these) | 11% | **100%** |
+| All claims | 78% | **90%** |
+| House-rule cases (only a correction can fix these) | 22% | **100%** |
 
 **Permanent fix: the trained adapter** (Mubit adapter v1, Qwen3-4B, trained on our verified examples):
 
@@ -63,7 +63,7 @@ It runs on the same engine as the inbox (`lib/game.ts`): first passes are `metad
 | Live shadow test | 15 of 21 replies judged as good as the provider's (71%) |
 | Contractor dinner claim | Same verdict as GPT, and it cites precedent P2 by itself, **4.2× faster** (579 ms vs 2.43 s) with **3.7× fewer tokens** |
 
-Training data so far: 312 verified examples, 32 of them corrections.
+Training data so far: 343 verified examples (31 of them from Night Shift), 32 of them corrections.
 
 Mubit's API doesn't expose adapter results, so the adapter figures are copied from the Mubit console into `lib/adapter-evidence.ts` and labelled as such in the app.
 
