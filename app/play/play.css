@@ -1,0 +1,237 @@
+/* Night Shift: the pixel-art game scene. Sizes use cqw (scene width) so the
+   whole scene scales as one picture. Every class is prefixed ns-. */
+
+.ns-scene {
+  container-type: inline-size;
+  image-rendering: pixelated;
+  --ns-ink: #12142a;
+  --ns-paper: #efe6cf;
+  --ns-paper-shade: #d9ccae;
+  --ns-approve: #3fae5b;
+  --ns-violation: #d9483b;
+  --ns-info: #e0a53a;
+  --ns-learn: #4f8dff;
+  --ns-amber: #ffcb5c;
+}
+
+/* A notched pixel border: four hard shadows, no rounded corners. */
+.ns-px {
+  --px: 0.35cqw;
+  --px-color: var(--ns-ink);
+  box-shadow:
+    0 calc(var(--px) * -1) 0 0 var(--px-color),
+    0 var(--px) 0 0 var(--px-color),
+    calc(var(--px) * -1) 0 0 0 var(--px-color),
+    var(--px) 0 0 0 var(--px-color);
+}
+
+
+
+/* The lamp's pool of light, stepped rather than smooth. */
+.ns-glow {
+  background: radial-gradient(
+    ellipse at center,
+    rgb(255 203 92 / 0.22) 0 30%,
+    rgb(255 203 92 / 0.12) 30% 50%,
+    rgb(255 203 92 / 0.05) 50% 70%,
+    transparent 70%
+  );
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+
+.ns-rain {
+  background-image: repeating-linear-gradient(
+    105deg,
+    transparent 0 1.6cqw,
+    rgb(160 190 255 / 0.35) 1.6cqw 1.75cqw,
+    transparent 1.75cqw 3.1cqw
+  );
+  background-size: 6cqw 6cqw;
+  animation: ns-rain 0.5s linear infinite;
+}
+
+@keyframes ns-rain {
+  to {
+    background-position: -1.6cqw 6cqw;
+  }
+}
+
+
+/* Robots bob in two steps, like an old sprite animation. */
+.ns-bob {
+  animation: ns-bob 1.2s steps(2) infinite;
+}
+
+@keyframes ns-bob {
+  50% {
+    transform: translateY(-0.4cqw);
+  }
+}
+
+/* Confused: a slow head tilt. Happy: a hop. */
+.ns-tilt {
+  animation: ns-tilt 1.4s steps(2) infinite;
+  transform-origin: bottom center;
+}
+
+@keyframes ns-tilt {
+  50% {
+    transform: rotate(-6deg);
+  }
+}
+
+.ns-hop {
+  animation: ns-hop 0.5s steps(3) 3;
+}
+
+@keyframes ns-hop {
+  50% {
+    transform: translateY(-1.5cqw);
+  }
+}
+
+/* The lamp light dips now and then, like an old bulb. */
+.ns-flicker {
+  animation: ns-flicker 4s steps(1) infinite;
+}
+
+@keyframes ns-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  71% {
+    opacity: 0.6;
+  }
+  73% {
+    opacity: 1;
+  }
+  76% {
+    opacity: 0.75;
+  }
+  78% {
+    opacity: 1;
+  }
+}
+
+.ns-dots span {
+  animation: ns-dot 1s steps(1) infinite;
+}
+.ns-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.ns-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes ns-dot {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.ns-slide-in {
+  animation: ns-slide-in 0.45s steps(6) both;
+}
+
+@keyframes ns-slide-in {
+  from {
+    transform: translateX(-30cqw) rotate(-4deg);
+  }
+}
+
+.ns-stamp-mark {
+  animation: ns-stamp 0.25s steps(3) both;
+}
+
+@keyframes ns-stamp {
+  from {
+    transform: scale(1.8) rotate(-12deg);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) rotate(-12deg);
+    opacity: 0.9;
+  }
+}
+
+.ns-shake {
+  animation: ns-shake 0.25s steps(4);
+}
+
+@keyframes ns-shake {
+  25% {
+    transform: translate(0.3cqw, -0.2cqw);
+  }
+  50% {
+    transform: translate(-0.3cqw, 0.2cqw);
+  }
+  75% {
+    transform: translate(0.2cqw, 0.2cqw);
+  }
+}
+
+.ns-pop {
+  animation: ns-pop 0.4s steps(4) both;
+}
+
+@keyframes ns-pop {
+  from {
+    transform: translateY(2cqw);
+    opacity: 0;
+  }
+}
+
+/* Stamp buttons sink when pressed. */
+.ns-btn {
+  transition: transform 60ms steps(1);
+}
+.ns-btn:hover {
+  transform: translateY(-0.25cqw);
+}
+.ns-btn:active {
+  transform: translateY(0.25cqw);
+}
+
+/* The office at night: sky and twinkling stars. */
+.ns-night-sky {
+  background: linear-gradient(#070a22, #141a48 18%, #0d1024 19%);
+}
+
+.ns-twinkle {
+  animation: ns-twinkle 2.8s steps(1) infinite;
+}
+
+@keyframes ns-twinkle {
+  40% {
+    opacity: 0.25;
+  }
+}
+
+/* CRT-ish scanlines over the whole scene. */
+.ns-scanlines {
+  background: repeating-linear-gradient(transparent 0 2px, rgb(0 0 0 / 0.12) 2px 3px);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ns-rain,
+  .ns-bob,
+  .ns-tilt,
+  .ns-hop,
+  .ns-flicker,
+  .ns-dots span,
+  .ns-slide-in,
+  .ns-stamp-mark,
+  .ns-shake,
+  .ns-pop,
+  .ns-twinkle {
+    animation: none;
+  }
+}

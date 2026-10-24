@@ -8,7 +8,7 @@ export type Category =
   | "software"
   | "other";
 
-export type ClaimSource = "user" | "seed" | "eval";
+export type ClaimSource = "user" | "seed" | "eval" | "game";
 
 export type Claim = {
   id: string;
@@ -129,9 +129,34 @@ export type EvalRun = {
   misses?: EvalMiss[];
 };
 
+// One Night Shift playthrough. Precedents here belong to this apprentice only,
+// so a new game starts untrained and the inbox keeps its own rulings.
+export type GameClaim = {
+  npcId: string;
+  claim: Claim;
+  firstPass?: Decision;
+  error?: string;
+  final?: {
+    verdict: Verdict;
+    reason?: string;
+    precedentId?: string;
+    at: string;
+  };
+  commit?: Commit;
+};
+
+export type Game = {
+  id: string;
+  createdAt: string;
+  precedents: Precedent[];
+  claims: GameClaim[];
+};
+
 export type Store = {
   claims: ClaimRecord[];
   precedents: Precedent[];
+  // Night Shift playthroughs. Absent in stores saved before the game existed.
+  games?: Game[];
   policy: Policy;
   // Earlier policy versions, oldest first.
   policyHistory?: Policy[];

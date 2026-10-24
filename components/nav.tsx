@@ -9,6 +9,7 @@ const LINKS: { href: string; label: string; short?: string }[] = [
   { href: "/submit", label: "Submit" },
   { href: "/policy", label: "Policy" },
   { href: "/loop", label: "Learning loop", short: "Loop" },
+  { href: "/play", label: "Night Shift", short: "Play" },
 ];
 
 export function Nav() {
