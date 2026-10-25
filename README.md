@@ -1,5 +1,9 @@
 # Precedent
 
+![Night Shift: the AI apprentice weighs a team dinner with a freelance designer](public/Night%20shift%20game.png)
+
+![The reviewer inbox: every claim with the model's verdict, its status and whether it became a training example](public/Landing%20page.png)
+
 **An expense-policy reviewer that learns from every finance correction.** Built at the Mubit Night Shift hackathon (London, 23–25 Oct 2026), _Recurring tasks_ track.
 
 An employee submits an expense. The model checks it against the company policy and gives a verdict (approve, violation or needs info) with the clause it relied on. When finance disagrees, they override it and write one sentence explaining why. That sentence does two things:
