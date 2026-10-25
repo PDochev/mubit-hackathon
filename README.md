@@ -11,6 +11,18 @@ An employee submits an expense. The model checks it against the company policy a
 
 Written expense policies never cover everything. Is a freelancer at a team dinner "team" or "client"? Is a taxi at 20:30 after a client dinner allowed when the policy says "after 21:00"? Finance answers the same questions every week, and the answers live in people's heads. Precedent makes each answer a one-time job: the model follows it from the next claim on, and learns it permanently through Mubit.
 
+## What the demo shows
+
+The demo video (under 3 minutes, in our hackathon submission with the slides) follows one correction from finance's head into the model:
+
+1. **A claim checked against policy and precedent.** An employee submits a £24.50 Uber at 20:30. The written policy only allows taxis after 21:00, but finance once ruled that a taxi straight after a client dinner is fine. The model approves it and cites that ruling, **P4**. Every call goes through Mubit.
+2. **Teaching, as a game.** In Night Shift, you're finance on the night shift, training an AI apprentice. It isn't sure about a team dinner with a freelance designer. You reject it and teach it one sentence: contractors count as team, not clients. That ruling, **R1**, applies straight away and is recorded through Mubit as a verified training example, with its request ID on screen.
+3. **It applies the ruling to a claim it has never seen.** At 03:00 a new claim on the same rule arrives, with a different restaurant, people and amount. The apprentice answers "USING YOUR RULING R1 · I'D REJECT" with no help.
+4. **The 09:00 audit.** Six unseen claims, each asked twice: as the apprentice was at the start of the night, and with your rulings. The score goes from **3/6 to 5/6**.
+5. **Proof inside Mubit.** The shift report links to the Mubit console, where the last ruling appears as a fully recorded request whose corrected answer cites the ruling.
+6. **The model update.** The Learning loop page shows what Mubit's trained adapter (Qwen3-4B) learned from examples like these. On the contractor claim it gives the same verdict as the provider model and cites the precedent by itself, **4.2× faster** with **3.7× fewer tokens**.
+7. **The numbers.** On 50 held-out claims, the cases only a correction can fix go from **0% to 100%**, and all claims from **74% to 90%**.
+
 ## Run it
 
 Requires **Node 24**. A **Mubit API key** is needed only for model calls.
